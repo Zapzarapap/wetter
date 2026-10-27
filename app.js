@@ -20,6 +20,9 @@
   // "Tropfen": 15-Minuten-Block ist trocken (< 0,1 mm), aber Regen liegt in der Luft:
   // Regenwahrscheinlichkeit der Stunde >= DROPS_PP, die Stunde hat insgesamt >= 0,1 mm, oder der Wettercode meldet Niesel/leichten Regen.
   const DROPS_PP = 50;
+  // Sonnenstunden = "Sonne ohne Wolken davor": Bewölkung <= SUN_CLOUD_MIN zählt voll, >= SUN_CLOUD_MAX gar nicht, dazwischen linear.
+  const SUN_CLOUD_MIN = 15;
+  const SUN_CLOUD_MAX = 85;
   const DROPS_CODES = new Set([51, 53, 56, 61, 66, 71, 77, 80, 85]);
   const RAIN_BLOCKS = 8; // 8 x 15 Minuten = 2 Stunden
   const WEEKDAYS = ['So', 'Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa'];
@@ -220,9 +223,9 @@
       latitude: place.lat.toFixed(4),
       longitude: place.lon.toFixed(4),
       current: 'temperature_2m,apparent_temperature,relative_humidity_2m,weather_code,wind_speed_10m,wind_gusts_10m,is_day',
-      hourly: 'temperature_2m,precipitation_probability,precipitation,weather_code,wind_speed_10m,wind_gusts_10m,is_day,uv_index',
+      hourly: 'temperature_2m,precipitation_probability,precipitation,weather_code,wind_speed_10m,wind_gusts_10m,is_day,uv_index' + (full ? ',cloud_cover,sunshine_duration' : ''),
       minutely_15: full ? 'precipitation,weather_code' : 'precipitation',
-      daily: 'weather_code,temperature_2m_max,temperature_2m_min,precipitation_sum,precipitation_probability_max,wind_speed_10m_max,wind_gusts_10m_max,sunrise,sunset,uv_index_max' + (full ? ',sunshine_duration' : ''),
+      daily: 'weather_code,temperature_2m_max,temperature_2m_min,precipitation_sum,precipitation_probability_max,wind_speed_10m_max,wind_gusts_10m_max,sunrise,sunset,uv_index_max',
       timezone: 'auto',
       forecast_days: '14',
       forecast_minutely_15: String(RAIN_BLOCKS + 1),
@@ -578,12 +581,28 @@
     </div>`;
   }
 
-  // Sonnenstunden: Open-Meteo rechnet pro Stunde die Sekunden mit direkter Sonne (Strahlung > 120 W/m², WMO-Definition).
-  // Teilweise Sonne zählt also anteilig (20 min Sonne = 1/3 h), weder alles noch nichts. Gerundet auf halbe Stunden.
-  function sunHtml(sec) {
-    if (!num(sec)) return '';
-    const h = Math.round((sec / 3600) * 2) / 2;
-    return `<span class="d-sun" title="Sonnenschein: ca. ${nf1.format(sec / 3600)} Stunden">${ui('sun')}${nf1.format(h)} h</span>`;
+  // Sonnenstunden pro Tag, "Sonne ohne Wolken davor". Pro Stunde zählt der kleinere Wert aus
+  //  a) Sonnenschein laut Strahlungsmodell (sunshine_duration, begrenzt auf Tageslicht und Sonnenstand) und
+  //  b) wolkenfreiem Anteil des Himmels (aus der Gesamtbewölkung, siehe SUN_CLOUD_MIN/MAX).
+  // Nur sunshine_duration (Strahlung > 120 W/m²) zählt auch dünne Wolken und Dunst als Sonne und liegt bei grauem Himmel zu hoch.
+  function daySunHours(d, idxs) {
+    const h = d.hourly;
+    if (!h || !h.sunshine_duration || !h.cloud_cover || !idxs.length) return undefined;
+    let sum = 0, any = false;
+    idxs.forEach((i) => {
+      const sec = h.sunshine_duration[i], cc = h.cloud_cover[i];
+      if (!num(sec) || !num(cc)) return;
+      any = true;
+      const clear = Math.min(1, Math.max(0, (SUN_CLOUD_MAX - cc) / (SUN_CLOUD_MAX - SUN_CLOUD_MIN)));
+      sum += Math.min(sec / 3600, clear);
+    });
+    return any ? sum : undefined;
+  }
+
+  function sunHtml(hours) {
+    if (!num(hours)) return '';
+    const r = Math.round(hours * 2) / 2; // auf halbe Stunden
+    return `<span class="d-sun" title="Sonne ohne dichte Wolken davor: ca. ${nf1.format(hours)} Stunden">${ui('sun')}${nf1.format(r)} h</span>`;
   }
 
   function renderDaily(d) {
@@ -619,7 +638,7 @@
       html += `<div class="day${open ? ' open' : ''}">
         <button class="drow${trend ? ' trend' : ''}" type="button" data-date="${date}" aria-expanded="${open}">
           <span class="d-day"><b>${r === 0 ? 'Heute' : weekday(date)}</b><small>${date.slice(8, 10)}.${date.slice(5, 7)}.</small></span>
-          <span class="d-ico"><span class="d-wi">${iconSvg(D.weather_code[i], 1)}</span>${sunHtml(D.sunshine_duration?.[i])}</span>
+          <span class="d-ico"><span class="d-wi">${iconSvg(D.weather_code[i], 1)}</span>${sunHtml(daySunHours(d, idxs))}</span>
           <span class="d-temp"><span class="lo">${deg(lo)}</span><span class="bar"><i style="left:${left.toFixed(1)}%;width:${width.toFixed(1)}%"></i></span><span class="hi">${deg(hi)}</span></span>
           <span class="d-rain"><span>${ui('drop')}${num(pp) ? Math.round(pp) + '%' : '–'}</span>${num(sum) && sum >= 0.1 ? `<small>${nf1.format(sum)} mm</small>` : ''}</span>
           <span class="d-gust">${ui('wind')}${windStr(wAvg, D.wind_gusts_10m_max?.[i])}</span>
