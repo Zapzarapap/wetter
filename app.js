@@ -441,18 +441,15 @@
       `<div class="now-top">
          <div class="now-main">
            <div class="temp">${deg(c.temperature_2m)}</div>
-           <div class="desc">${esc(describe(c.weather_code, day))}</div>
-           <div class="feels">Gefühlt <b>${deg(c.apparent_temperature)}</b></div>
+           <div class="desc">${esc(describe(c.weather_code, day))}<span class="feels"> · Gefühlt ${deg(c.apparent_temperature)}</span></div>
          </div>
          <div class="now-icon">${iconSvg(c.weather_code, day)}</div>
        </div>
        <div class="stats">
-         ${stat('wind', 'Wind Ø–Böen', `${windStr(c.wind_speed_10m, c.wind_gusts_10m)} <small>km/h</small>`)}
-         ${stat('humidity', 'Luftfeuchte', `${int(c.relative_humidity_2m)} <small>%</small>`)}
-         ${stat('sun', 'UV-Index', num(uv) ? `${nf0.format(Math.round(uv))} <small>${uvLabel(uv)}</small>` : '–')}
-         ${stat('drop', 'Regen heute', rainTodayHtml(d))}
-         ${stat('sunrise', 'Sonnenaufgang', today.rise ? hhmm(today.rise) : '–')}
-         ${stat('sunset', 'Sonnenuntergang', today.set ? hhmm(today.set) : '–')}
+         ${stat('wind', 'Wind', `${windStr(c.wind_speed_10m, c.wind_gusts_10m)} <small>km/h</small>`)}
+         ${stat('sun', 'UV', num(uv) ? `${nf0.format(Math.round(uv))} <small>${uvLabel(uv)}</small>` : '–')}
+         ${stat('sunrise', 'Aufgang', today.rise ? hhmm(today.rise) : '–')}
+         ${stat('sunset', 'Untergang', today.set ? hhmm(today.set) : '–')}
        </div>`;
   }
 

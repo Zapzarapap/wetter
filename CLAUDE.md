@@ -23,9 +23,9 @@ Persönliche, möglichst simple Wetterseite für Niklas (Hombruch, Dortmund). Wi
   (siehe unten), Stündlich (48 h, horizontal scrollbar),
   Regenleiste (2 h in 15-Minuten-Blöcken), Tage (7, umschaltbar auf 14; ab Tag 8 als "Trend" markiert).
 - Wind wird überall als **Durchschnitt–Böen** in km/h angezeigt (z. B. 24–35). Tageswerte: Durchschnitt aller Stunden des Tages, Böen = Tagesmaximum.
-- Aktuell-Karte: linksbündige Spalte (große, kräftige Temperatur, Beschreibung, darunter "Gefühlt"), Icon rechts; darunter 2-Spalten-Raster mit Haarlinien (Hoch/Tief ausdrücklich nicht gewünscht; Layout-Überarbeitung 27.10., Rücksetzpunkt = Git-Tag `vor-layout-ueberarbeitung`); Werte Wind (Ø–Böen),
-  Luftfeuchte, UV, Regen heute, Sonnenauf-/-untergang. "Regen heute" zeigt Uhrzeiten (z. B. "14–16 Uhr", "bis 15 Uhr", "Trocken bis 24 Uhr"),
-  nicht Wahrscheinlichkeit + Menge (war für Niklas aussagelos).
+- Aktuell-Karte: bewusst **kompakt** (erste Überarbeitung mit 2-Spalten-Raster war Niklas "viel zu groß", "keine Excel-Tabelle"): links große Temperatur + Status ("Bedeckt · Gefühlt 9°"),
+  rechts das Icon, darunter eine einzige Zeile mit vier Werten: Wind (Ø–Böen), UV, Sonnenaufgang, Sonnenuntergang. Hoch/Tief nicht gewünscht. Luftfeuchte und "Regen heute" sind
+  vorerst raus (`rainTodayHtml()` bleibt im Code, ungenutzt). Rücksetzpunkt auf die Version vor den Layout-Änderungen: Commit f336fe2.
 - Jeder Tag in der Vorhersage ist per Tippen aufklappbar: **drei Blöcke à 8 Stunden, nur mit Uhrzeit, ohne Namen** (Niklas' Wunsch): 22–6, 6–14, 14–22 Uhr
   (eine Reihe, 3 Kacheln). Der Nachtblock 22–6 ist die Nacht, die in diesen Morgen hineinläuft (Vortag 22 Uhr bis 6 Uhr). Zuvor probiert und verworfen:
   Blöcke mit Namen (4/6/8 Stück, ungleich lange und 3-/4-Stunden-Raster). Zeiten stehen in der Konstante `SEGS` in `app.js`. Pro Kachel: Icon, Ø-Temperatur,
