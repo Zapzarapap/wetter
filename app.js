@@ -392,32 +392,32 @@
     return out;
   }
 
+  // Der Satz folgt exakt den Kästchen der Leiste: gleiche Stufen, gleiche Wechselzeiten (Beginn des jeweiligen 15-Minuten-Blocks).
   function rainSummary(blocks) {
     const n = blocks.length;
-    const wet = (b) => b.cls !== 'dry' && b.cls !== 'drops';
-    const word = (b) => {
-      const c = b.code;
-      if (c >= 95) return 'Gewitter';
-      if ((c >= 71 && c <= 77) || c === 85 || c === 86) return 'Schnee';
-      if (c >= 51 && c <= 57) return 'Nieselregen';
-      return 'Regen';
-    };
     const endTime = hhmmFromMs(tMs(blocks[n - 1].time) + 900000);
-    const first = blocks.findIndex(wet);
-    if (first === -1) {
-      const dr = blocks.findIndex((b) => b.cls === 'drops');
-      if (dr === -1) return n === RAIN_BLOCKS ? 'Trocken in den nächsten 2 Stunden.' : `Trocken bis ${endTime}.`;
-      return dr === 0 ? 'Trocken, vielleicht ein paar Tropfen.' : `Trocken, ab ${hhmm(blocks[dr].time)} vielleicht ein paar Tropfen.`;
-    }
-    if (first > 0) return `Trocken bis ${hhmm(blocks[first].time)}, dann ${word(blocks[first])}.`;
-    const end = blocks.findIndex((b, i) => i > 0 && !wet(b));
-    if (end === -1) return `${word(blocks[0])} bis mindestens ${endTime}.`;
-    // Tropfen-Blöcke nach dem Regen stehen auch in der Leiste (gepunktet), also auch im Satz erwähnen
-    const dropsAfter = blocks.some((b, i) => i >= end && b.cls === 'drops');
-    let s = `${word(blocks[0])} bis ${hhmm(blocks[end].time)}, danach ${dropsAfter ? 'trocken, vielleicht noch ein paar Tropfen' : 'trocken'}.`;
-    const again = blocks.findIndex((b, i) => i > end && wet(b));
-    if (again !== -1) s += ` Ab ${hhmm(blocks[again].time)} wieder ${word(blocks[again])}.`;
-    return s;
+    const kind = (b) => {
+      if (b.cls === 'dry' || b.cls === 'drops') return b.cls;
+      const c = b.code;
+      if (b.cls === 'storm' || c >= 95) return 'storm';
+      if ((c >= 71 && c <= 77) || c === 85 || c === 86) return 'snow';
+      return b.cls; // light, mid, heavy
+    };
+    const NAME = { dry: 'trocken', drops: 'ein paar Tropfen', light: 'leichter Regen', mid: 'Regen', heavy: 'starker Regen', storm: 'Gewitter', snow: 'Schnee' };
+    const segs = [];
+    blocks.forEach((b, i) => {
+      const k = kind(b), last = segs[segs.length - 1];
+      if (last && last.k === k) last.to = i; else segs.push({ k, from: i, to: i });
+    });
+    if (segs.length === 1 && segs[0].k === 'dry') return n === RAIN_BLOCKS ? 'Trocken in den nächsten 2 Stunden.' : `Trocken bis ${endTime}.`;
+    const MAX = 3;
+    const parts = segs.slice(0, MAX).map((s, idx) => {
+      const next = segs[idx + 1];
+      return next ? `${NAME[s.k]} bis ${hhmm(blocks[next.from].time)}` : (s.k === 'dry' ? NAME.dry : `${NAME[s.k]} bis mindestens ${endTime}`);
+    });
+    let txt = parts.join(', dann ');
+    if (segs.length > MAX) txt += ', danach wechselhaft';
+    return txt.charAt(0).toUpperCase() + txt.slice(1) + '.';
   }
 
   function dailyStart(d) {
@@ -571,9 +571,9 @@
     const calm = blocks.every((b) => b.cls === 'dry' || b.cls === 'drops'); // kein richtiger Regen in Sicht
     const hasDrops = blocks.some((b) => b.cls === 'drops');
     const msg = hasDrops ? `${ui('drop')}Höchstens ein paar Tropfen` : `${ui('check')}Kein Regen`;
-    const dropsKey = '<span><i class="l0"></i>vereinzelt Tropfen</span>';
+    const dropsKey = '<span><i class="l0"></i>Niesel / ein paar Tropfen</span>';
     const legend = calm
-      ? (hasDrops ? `<div class="legend">${dropsKey.replace('vereinzelt Tropfen', 'gepunktet = vielleicht ein paar Tropfen')}</div>` : '')
+      ? (hasDrops ? `<div class="legend">${dropsKey}</div>` : '')
       : `<div class="legend">${hasDrops ? dropsKey : ''}<span><i class="l1"></i>leicht</span><span><i class="l2"></i>mäßig</span><span><i class="l3"></i>stark</span><span><i class="l4"></i>Gewitter</span><span>Zahlen in mm (1 mm = 1 Liter pro m²)</span></div>`;
     el.rain.innerHTML =
       `<div class="raintrack${calm ? ' alldry' : ''}" style="--n:${n}">${cells}${calm ? `<span class="rb-msg${hasDrops ? ' pill' : ''}"><b>${msg}</b></span>` : ''}</div>

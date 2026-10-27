@@ -331,7 +331,7 @@
     const lg = $('radarLegend'), img = $('radarLegendImg');
     if (lg && img) {
       lg.addEventListener('toggle', () => {
-        if (lg.open && !img.getAttribute('src')) img.src = `${WMS}?service=WMS&version=1.1.1&request=GetLegendGraphic&format=image/png&layer=${encodeURIComponent(LAYER)}&transparent=true&legend_options=fontColor:0xFFFFFF;fontAntiAliasing:true;forceTitles:off;layout:horizontal;dpi:110`;
+        if (lg.open && !img.getAttribute('src')) img.src = `${WMS}?service=WMS&version=1.1.1&request=GetLegendGraphic&format=image/png&layer=${encodeURIComponent(LAYER)}&transparent=true&legend_options=fontColor:0xFFFFFF;fontAntiAliasing:true;forceTitles:off;columns:2;dpi:140`;
       });
       img.addEventListener('error', () => { lg.hidden = true; });
     }
