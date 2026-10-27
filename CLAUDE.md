@@ -66,6 +66,13 @@ Persönliche, möglichst simple Wetterseite für Niklas (Hombruch, Dortmund). Wi
   und ob `forecast_minutely_15` wie erwartet ab dem aktuellen Viertelstunden-Slot beginnt. Bei Auffälligkeiten zuerst dort schauen.
 
 ## Ideen für später (nicht beauftragt)
-- Regenleiste mit 5-Minuten-Quelle: Bright Sky `/radar` (DWD RV-Komposit, 1-km-Raster, 5-Minuten-Bilder, bis 120 Minuten Vorhersage, Wert = 0,01 mm pro 5 min, Parameter `lat`, `lon`, `distance`,
-  `format`; polare Projektion, `latlon_position` gibt die Position im Raster; Antwort `compressed` = base64 + zlib, im Browser z. B. mit `DecompressionStream`). CORS unbekannt, vor dem Bau prüfen.
+- **Radar-Recherche (27.10., nur aus Dokus und Projekten Dritter, von der Entwicklungsumgebung aus nicht abrufbar):**
+  - Aktuell nutzt die Regenleiste Open-Meteo `minutely_15`; für Mitteleuropa laut Open-Meteo nativ aus DWD ICON-D2 (2 km, kein reines Interpolat).
+  - **DWD-WMS** `https://maps.dwd.de/geoserver/dwd/wms`, Layer `dwd:Niederschlagsradar` (= RV-Produkt, 1 km, 5 min, -2 h bis +2 h, 49 Bilder, Vorhersage im selben Layer über Zeitparameter),
+    ohne Key, Lizenz GeoNutzV / CC BY 4.0, Quellenangabe "Quelle: Deutscher Wetterdienst". Kartenbilder (Leaflet-WMS-Overlay) brauchen kein CORS. Offen: genaues Zeitformat (GetCapabilities),
+    ob `GetFeatureInfo` (Wert am Punkt) per Browser-`fetch` erlaubt ist (CORS).
+  - **Bright Sky `/radar`**: gleiche DWD-RV-Daten als Zahlenwerte für einen Punkt (`lat`, `lon`, `distance`, `format=plain`, 0,01 mm pro 5 min, bis +120 min). CORS ungeprüft. Die Zahlen eignen sich für die Regenleiste.
+  - **RainViewer** ungeeignet: seit 1.1.2026 keine Vorhersage mehr, nur 2 h Rückblick in 10-Minuten-Schritten, max. Zoom 7, 100 Anfragen/min je IP.
+  - Dienste mit Key (OpenWeatherMap, Pirate Weather, Tomorrow.io u. a.) scheiden aus, weil das Repo öffentlich ist.
+  - Plan (noch nicht beauftragt): Regenleiste in Deutschland aus Radar (Mittel/Max über kleine Umgebung des Punkts) für die ersten 2 h, sonst ICON-D2; darunter optional Karte (Leaflet im Repo, OSM-Kacheln + DWD-WMS, Zeitleiste).
 - Schwellenwerte der Regenfarben nach Gefühl nachjustieren.
