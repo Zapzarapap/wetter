@@ -509,10 +509,10 @@
        ${legend}`;
   }
 
-  // Tageszeiten pro Tag: [Name, von, bis]. Stunden >= 24 gehören zum Folgetag (die Nacht 23–5 reicht über Mitternacht).
-  const SEGS = [['Morgens', 5, 8], ['Vormittags', 8, 11], ['Mittags', 11, 14], ['Nachmittags', 14, 17],
-    ['Abends', 17, 20], ['Spätabends', 20, 23], ['Nachts', 23, 26], ['Nachts', 26, 29]];
-  const nextDate = (date) => new Date(Date.parse(date + 'T00:00:00Z') + 86400000).toISOString().slice(0, 10);
+  // Drei Blöcke pro Tag, je 8 Stunden: [von, bis] in Stunden relativ zum Tag (negativ = Vortag, 22 Uhr = -2).
+  // Der Nachtblock 22–6 ist die Nacht, die in diesen Morgen hineinläuft (Vortag 22 Uhr bis 6 Uhr).
+  const SEGS = [[-2, 6], [6, 14], [14, 22]];
+  const addDays = (date, n) => new Date(Date.parse(date + 'T00:00:00Z') + n * 86400000).toISOString().slice(0, 10);
   const avg = (a) => (a.length ? a.reduce((x, y) => x + y, 0) / a.length : undefined);
   // Schwere eines Niederschlags-Wettercodes (nur für Codes ab 51)
   const sev = (c) => (c >= 95 ? 9 : c === 65 || c === 67 || c === 82 ? 8
@@ -533,23 +533,23 @@
   function segRain(sum, code) {
     if (code >= 95) return 'storm';
     if (sum < 0.1) return 'dry';
-    if (sum < 1) return 'light';
-    if (sum < 3) return 'mid';
+    if (sum < 2) return 'light';
+    if (sum < 6) return 'mid';
     return 'heavy';
   }
 
   function daySegments(d, byDay, date) {
     const h = d.hourly;
     const nowMs = localNowMs(d);
-    const next = nextDate(date);
-    return SEGS.map(([name, from, to]) => {
+    return SEGS.map(([from, to]) => {
+      const label = `${(from + 24) % 24}–${to % 24} Uhr`;
       const pick = [];
       for (let hh = from; hh < to; hh++) {
-        const arr = byDay.get(hh < 24 ? date : next);
-        const idx = arr && arr.find((i) => Number(h.time[i].slice(11, 13)) === hh % 24);
+        const arr = byDay.get(addDays(date, hh < 0 ? -1 : hh >= 24 ? 1 : 0));
+        const idx = arr && arr.find((i) => Number(h.time[i].slice(11, 13)) === (hh + 24) % 24);
         if (idx !== undefined) pick.push(idx);
       }
-      if (!pick.length) return { name, from, to, empty: true };
+      if (!pick.length) return { label, empty: true };
       const vals = (arr) => pick.map((i) => arr?.[i]).filter(num);
       const mm = vals(h.precipitation).reduce((a, b) => a + b, 0);
       const pp = vals(h.precipitation_probability);
@@ -557,7 +557,7 @@
       const code = repCode(vals(h.weather_code), mm);
       const mid = pick[Math.floor(pick.length / 2)];
       return {
-        name, from, to, mm, code,
+        label, mm, code,
         temp: avg(vals(h.temperature_2m)), wind: avg(vals(h.wind_speed_10m)),
         pp: pp.length ? Math.max(...pp) : undefined, gust: g.length ? Math.max(...g) : undefined,
         isDay: h.is_day?.[mid] ?? 1, cls: segRain(mm, code),
@@ -567,9 +567,9 @@
   }
 
   function segHtml(s) {
-    if (s.empty) return '<div class="seg"></div>';
+    if (s.empty) return `<div class="seg"><span class="s-name">${s.label}</span></div>`;
     return `<div class="seg${s.past ? ' past' : ''}"><i class="sbar ${s.cls}"></i>
-      <span class="s-name">${s.name}</span><span class="s-time">${s.from % 24}–${s.to % 24} Uhr</span>
+      <span class="s-name">${s.label}</span>
       <span class="s-ico">${iconSvg(s.code, s.isDay)}</span>
       <span class="s-temp">${deg(s.temp)}</span>
       <span class="s-rain">${ui('drop')}${num(s.pp) ? Math.round(s.pp) + '%' : '–'}</span>
