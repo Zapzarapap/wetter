@@ -38,6 +38,10 @@ Persönliche, möglichst simple Wetterseite für Niklas (Hombruch, Dortmund). Wi
   stark > 1,5 = dunkelblau, Gewitter (Wettercode ≥ 95) = lila. Dazu ein Satz ("Trocken bis 09:30, dann Regen").
   Das "Wann kann ich raus?"-Fenster beurteilt Niklas selbst an der Leiste. 15-Minuten-Raster ist Modelldaten, kein echtes Radar.
   Die Datenfunktion `rainBlocks()` ist bewusst getrennt, falls später eine 5-Minuten-Quelle genutzt werden soll.
+- Stufe "Tropfen" (Niklas: "vielleicht ein paar Tropfen in der Luft"): 15-Minuten-Block < 0,1 mm, aber Regenwahrscheinlichkeit der Stunde >= 50 %, Stunde mit >= 0,1 mm
+  oder Niesel-/Leichtregen-Code. Blass-blau gepunktet; sind alle Blöcke trocken oder Tropfen, zeigt die ruhige Leiste "Kein Regen" bzw. "Höchstens ein paar Tropfen".
+  Hintergrund: Open-Meteo speichert Niederschlag nur mit 0,1 mm Genauigkeit (nach eigenem Wissen, nicht an echten Daten geprüft), Werte < 0,1 kommen also nie an.
+  Schwelle `DROPS_PP` und `DROPS_CODES` in `app.js`; erst nach echten Regentagen nachjustieren.
 - Standort: beim Öffnen Geolocation; schlägt sie fehl, der zuletzt genutzte Ort (localStorage); gibt es keinen, **Hombruch (Dortmund)**.
 - Hintergrund passt sich an Wettercode und Tageszeit an (kein separater Dark Mode, nachts dunkel). Farben in `THEMES` in `app.js`.
 - Aktualisierung beim Öffnen und alle 15 Minuten, solange die Seite offen ist. PWA: installierbar, letzte Daten werden sofort

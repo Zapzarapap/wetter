@@ -17,6 +17,10 @@
   const REFRESH_MS = 15 * 60 * 1000;
   const SAME_PLACE_KM = 0.3;
   const HOURS = 48;
+  // "Tropfen": 15-Minuten-Block ist trocken (< 0,1 mm), aber Regen liegt in der Luft:
+  // Regenwahrscheinlichkeit der Stunde >= DROPS_PP, die Stunde hat insgesamt >= 0,1 mm, oder der Wettercode meldet Niesel/leichten Regen.
+  const DROPS_PP = 50;
+  const DROPS_CODES = new Set([51, 53, 56, 61, 66, 71, 77, 80, 85]);
   const RAIN_BLOCKS = 8; // 8 x 15 Minuten = 2 Stunden
   const WEEKDAYS = ['So', 'Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa'];
 
@@ -304,14 +308,21 @@
     for (let k = i; k < m.time.length && out.length < RAIN_BLOCKS; k++) {
       const mm = m.precipitation?.[k];
       const code = m.weather_code ? m.weather_code[k] : hourlyCodeAt(d, m.time[k]);
-      out.push({ time: m.time[k], mm: num(mm) ? mm : 0, code, cls: rainClass(mm, code) });
+      let cls = rainClass(mm, code);
+      if (cls === 'dry') {
+        const hi = d.hourly?.time ? d.hourly.time.indexOf(m.time[k].slice(0, 13) + ':00') : -1;
+        const pp = hi >= 0 ? d.hourly.precipitation_probability?.[hi] : undefined;
+        const hmm = hi >= 0 ? d.hourly.precipitation?.[hi] : undefined;
+        if ((num(pp) && pp >= DROPS_PP) || (num(hmm) && hmm >= 0.1) || DROPS_CODES.has(code)) cls = 'drops';
+      }
+      out.push({ time: m.time[k], mm: num(mm) ? mm : 0, code, cls });
     }
     return out;
   }
 
   function rainSummary(blocks) {
     const n = blocks.length;
-    const wet = (b) => b.cls !== 'dry';
+    const wet = (b) => b.cls !== 'dry' && b.cls !== 'drops';
     const word = (b) => {
       const c = b.code;
       if (c >= 95) return 'Gewitter';
@@ -321,7 +332,11 @@
     };
     const endTime = hhmmFromMs(tMs(blocks[n - 1].time) + 900000);
     const first = blocks.findIndex(wet);
-    if (first === -1) return n === RAIN_BLOCKS ? 'Trocken in den nächsten 2 Stunden.' : `Trocken bis ${endTime}.`;
+    if (first === -1) {
+      const dr = blocks.findIndex((b) => b.cls === 'drops');
+      if (dr === -1) return n === RAIN_BLOCKS ? 'Trocken in den nächsten 2 Stunden.' : `Trocken bis ${endTime}.`;
+      return dr === 0 ? 'Trocken, vielleicht ein paar Tropfen.' : `Trocken, ab ${hhmm(blocks[dr].time)} vielleicht ein paar Tropfen.`;
+    }
     if (first > 0) return `Trocken bis ${hhmm(blocks[first].time)}, dann ${word(blocks[first])}.`;
     const end = blocks.findIndex((b, i) => i > 0 && !wet(b));
     if (end === -1) return `${word(blocks[0])} bis mindestens ${endTime}.`;
@@ -470,8 +485,8 @@
     }
     const n = blocks.length;
     const cells = blocks.map((b) => {
-      const txt = b.cls === 'dry' ? '' : b.mm >= 0.05 ? nf1.format(b.mm) : '';
-      const tip = `${hhmm(b.time)} Uhr · ${b.cls === 'dry' ? 'trocken' : nf1.format(b.mm) + ' mm'}`;
+      const txt = b.cls === 'dry' || b.cls === 'drops' ? '' : b.mm >= 0.05 ? nf1.format(b.mm) : '';
+      const tip = `${hhmm(b.time)} Uhr · ${b.cls === 'dry' ? 'trocken' : b.cls === 'drops' ? 'vielleicht ein paar Tropfen' : nf1.format(b.mm) + ' mm'}`;
       return `<div class="rb ${b.cls}" title="${tip}">${txt}</div>`;
     }).join('');
     const endMs = tMs(blocks[n - 1].time) + 900000;
@@ -480,12 +495,18 @@
       const t = i === 0 ? 'Jetzt' : hhmmFromMs(i < n ? tMs(blocks[i].time) : endMs);
       return `<span style="left:${((i / n) * 100).toFixed(2)}%">${t}</span>`;
     }).join('');
-    const allDry = blocks.every((b) => b.cls === 'dry');
+    const calm = blocks.every((b) => b.cls === 'dry' || b.cls === 'drops'); // kein richtiger Regen in Sicht
+    const hasDrops = blocks.some((b) => b.cls === 'drops');
+    const msg = hasDrops ? `${ui('drop')}Höchstens ein paar Tropfen` : `${ui('check')}Kein Regen`;
+    const dropsKey = '<span><i class="l0"></i>vereinzelt Tropfen</span>';
+    const legend = calm
+      ? (hasDrops ? `<div class="legend">${dropsKey.replace('vereinzelt Tropfen', 'gepunktet = vielleicht ein paar Tropfen')}</div>` : '')
+      : `<div class="legend">${hasDrops ? dropsKey : ''}<span><i class="l1"></i>leicht</span><span><i class="l2"></i>mäßig</span><span><i class="l3"></i>stark</span><span><i class="l4"></i>Gewitter</span><span>Zahlen in mm (1 mm = 1 Liter pro m²)</span></div>`;
     el.rain.innerHTML =
-      `<div class="raintrack${allDry ? ' alldry' : ''}" style="--n:${n}">${cells}${allDry ? `<span class="rb-msg">${ui('check')}Kein Regen</span>` : ''}</div>
+      `<div class="raintrack${calm ? ' alldry' : ''}" style="--n:${n}">${cells}${calm ? `<span class="rb-msg${hasDrops ? ' pill' : ''}"><b>${msg}</b></span>` : ''}</div>
        <div class="rainlabels">${labels}</div>
        <p class="rainsummary">${esc(rainSummary(blocks))}</p>
-       ${allDry ? '' : '<div class="legend"><span><i class="l1"></i>leicht</span><span><i class="l2"></i>mäßig</span><span><i class="l3"></i>stark</span><span><i class="l4"></i>Gewitter</span><span>Zahlen in mm (1 mm = 1 Liter pro m²)</span></div>'}`;
+       ${legend}`;
   }
 
   // Tageszeiten pro Tag: [Name, von, bis]. Stunden >= 24 gehören zum Folgetag (die Nacht 23–5 reicht über Mitternacht).

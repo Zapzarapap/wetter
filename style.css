@@ -250,6 +250,12 @@ main:not(.empty) > .loading { display: none; }
   font-variant-numeric: tabular-nums; overflow: hidden;
 }
 .rb.dry   { background: rgba(255, 255, 255, .07); }
+/* Tropfen: kaum Regen, nur "in der Luft" – blass, gepunktet */
+.rb.drops {
+  background-color: rgba(165, 216, 255, .3);
+  background-image: radial-gradient(circle, rgba(255, 255, 255, .95) 1.3px, transparent 1.8px);
+  background-size: 9px 9px; background-position: center;
+}
 .rb.light { background: #a5d8ff; color: #0a2a52; }
 .rb.mid   { background: #4a9dff; color: #fff; }
 .rb.heavy { background: #1f4fd8; color: #fff; }
@@ -264,6 +270,8 @@ main:not(.empty) > .loading { display: none; }
   font-size: .88rem; font-weight: 600; color: #fff; text-shadow: 0 1px 2px rgba(0, 0, 0, .22); pointer-events: none;
 }
 .rb-msg .ic { width: 16px; height: 16px; stroke-width: 2.8; }
+.rb-msg b { display: flex; align-items: center; gap: 6px; font-weight: inherit; }
+.rb-msg.pill b { padding: 3px 12px; border-radius: 999px; background: rgba(8, 28, 60, .4); text-shadow: none; }
 
 .rainlabels { position: relative; height: 1.3em; margin: 6px 4px 0; font-size: .7rem; color: var(--fg2); font-variant-numeric: tabular-nums; }
 .rainlabels span { position: absolute; top: 0; transform: translateX(-50%); white-space: nowrap; }
@@ -274,6 +282,7 @@ main:not(.empty) > .loading { display: none; }
 
 .legend { display: flex; flex-wrap: wrap; gap: 4px 12px; margin-top: 8px; font-size: .7rem; color: var(--fg3); }
 .legend i { display: inline-block; width: 9px; height: 9px; margin-right: 4px; border-radius: 3px; vertical-align: -1px; }
+.legend .l0 { background-color: rgba(165, 216, 255, .45); background-image: radial-gradient(circle, #fff 1px, transparent 1.4px); background-size: 5px 5px; }
 .legend .l1 { background: #a5d8ff; } .legend .l2 { background: #4a9dff; }
 .legend .l3 { background: #1f4fd8; } .legend .l4 { background: #a855f7; }
 
