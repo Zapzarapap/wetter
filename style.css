@@ -311,7 +311,7 @@ main:not(.empty) > .loading { display: none; }
 .d-note { padding: 8px 0 2px; font-size: .72rem; color: var(--fg3); text-align: center; border-top: 1px dashed rgba(255, 255, 255, .22); }
 
 /* Aufgeklappter Tag: Nachts / Morgens / Mittags / Abends */
-.dsegs { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; padding: 2px 0 12px; }
+.dsegs { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; padding: 2px 0 12px; }
 .seg {
   position: relative; min-width: 0; overflow: hidden;
   display: grid; justify-items: center; align-content: start; gap: 3px;
@@ -323,7 +323,7 @@ main:not(.empty) > .loading { display: none; }
 .sbar { position: absolute; top: 0; left: 0; right: 0; height: 4px; }
 .sbar.light { background: #a5d8ff; } .sbar.mid { background: #4a9dff; }
 .sbar.heavy { background: #1f4fd8; } .sbar.storm { background: #a855f7; }
-.s-name { font-size: .78rem; font-weight: 600; }
+.s-name { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: .74rem; font-weight: 600; }
 .s-time { font-size: .62rem; color: var(--fg3); white-space: nowrap; }
 .s-ico { display: block; width: 30px; height: 30px; margin-top: 2px; }
 .s-temp { font-size: 1rem; font-weight: 600; }
@@ -349,6 +349,8 @@ main:not(.empty) > .loading { display: none; }
   .drow { grid-template-columns: 2.8rem 1.8rem minmax(0, 1fr) 2.8rem 3.2rem .9rem; column-gap: 4px; }
   .d-gust { font-size: .72rem; }
   .dsegs { gap: 4px; }
+  .s-name { font-size: .6rem; letter-spacing: -.01em; }
+  .s-rain, .s-wind { font-size: .7rem; }
   .d-temp .bar { display: none; }
   .d-temp { gap: 3px; }
   .d-temp .lo::after { content: " /"; }

@@ -489,7 +489,8 @@
   }
 
   // Tageszeiten pro Tag: [Name, von, bis]. Stunden >= 24 gehören zum Folgetag (die Nacht 23–5 reicht über Mitternacht).
-  const SEGS = [['Morgens', 5, 9], ['Vormittags', 9, 12], ['Mittags', 12, 15], ['Nachmittags', 15, 18], ['Abends', 18, 23], ['Nachts', 23, 29]];
+  const SEGS = [['Morgens', 5, 8], ['Vormittags', 8, 11], ['Mittags', 11, 14], ['Nachmittags', 14, 17],
+    ['Abends', 17, 20], ['Spätabends', 20, 23], ['Nachts', 23, 26], ['Nachts', 26, 29]];
   const nextDate = (date) => new Date(Date.parse(date + 'T00:00:00Z') + 86400000).toISOString().slice(0, 10);
   const avg = (a) => (a.length ? a.reduce((x, y) => x + y, 0) / a.length : undefined);
   // Schwere eines Niederschlags-Wettercodes (nur für Codes ab 51)
@@ -512,7 +513,7 @@
     if (code >= 95) return 'storm';
     if (sum < 0.1) return 'dry';
     if (sum < 1) return 'light';
-    if (sum < 4) return 'mid';
+    if (sum < 3) return 'mid';
     return 'heavy';
   }
 
@@ -547,7 +548,7 @@
   function segHtml(s) {
     if (s.empty) return '<div class="seg"></div>';
     return `<div class="seg${s.past ? ' past' : ''}"><i class="sbar ${s.cls}"></i>
-      <span class="s-name">${s.name}</span><span class="s-time">${s.from}–${s.to % 24} Uhr</span>
+      <span class="s-name">${s.name}</span><span class="s-time">${s.from % 24}–${s.to % 24} Uhr</span>
       <span class="s-ico">${iconSvg(s.code, s.isDay)}</span>
       <span class="s-temp">${deg(s.temp)}</span>
       <span class="s-rain">${ui('drop')}${num(s.pp) ? Math.round(s.pp) + '%' : '–'}</span>

@@ -26,10 +26,11 @@ Persönliche, möglichst simple Wetterseite für Niklas (Hombruch, Dortmund). Wi
 - Aktuell-Karte: große, kräftige Temperatur mit "Gefühlt" daneben (Hoch/Tief ausdrücklich nicht gewünscht); Kacheln Wind (Ø–Böen),
   Luftfeuchte, UV, Regen heute, Sonnenauf-/-untergang. "Regen heute" zeigt Uhrzeiten (z. B. "14–16 Uhr", "bis 15 Uhr", "Trocken bis 24 Uhr"),
   nicht Wahrscheinlichkeit + Menge (war für Niklas aussagelos).
-- Jeder Tag in der Vorhersage ist per Tippen aufklappbar, sechs Tageszeiten (3 x 2 Kacheln): Morgens 5–9, Vormittags 9–12, Mittags 12–15,
-  Nachmittags 15–18, Abends 18–23, Nachts 23–5 (die Nacht reicht in den Folgetag). Niklas steht ab ca. 5 Uhr auf, seine Nacht beginnt spätestens um 23 Uhr.
-  Zeiten stehen in der Konstante `SEGS` in `app.js`. Pro Kachel: Icon, Ø-Temperatur, Regenwahrscheinlichkeit (Max), Regenmenge (Summe), Wind.
-  Farbbalken oben nach Regenmenge (Summe: <0,1 trocken, <1 hell, <4 mittel, sonst dunkel, Gewitter lila).
+- Jeder Tag in der Vorhersage ist per Tippen aufklappbar: acht **gleich lange 3-Stunden-Blöcke** (4 x 2 Kacheln): Morgens 5–8, Vormittags 8–11,
+  Mittags 11–14, Nachmittags 14–17, Abends 17–20, Spätabends 20–23, Nachts 23–2, Nachts 2–5 (die Nacht reicht in den Folgetag).
+  Niklas steht ab ca. 5 Uhr auf, sein Mittag ist wirklich um 12, seine Nacht beginnt spätestens um 23 Uhr; Blöcke ungleicher Länge (z. B. 5–9, 9–12, 12–15 …)
+  und 4-Stunden-Blöcke fand er unpassend. Zeiten stehen in der Konstante `SEGS` in `app.js`. Pro Kachel: Icon, Ø-Temperatur, Regenwahrscheinlichkeit (Max),
+  Regenmenge (Summe), Wind. Farbbalken oben nach Regenmenge (Summe: <0,1 trocken, <1 hell, <3 mittel, sonst dunkel, Gewitter lila).
 - Regenleiste komplett trocken: ruhige, halbtransparente Leiste (weder grell hell noch dunkel) mit Haken und "Kein Regen". Niederschlag in mm (1 mm = 1 Liter pro m²), Hinweis steht in der Legende.
 - Stündlich hat eine **eigene** Scrollleiste (`#hbar`, per JavaScript, zieh- und antippbar, runde Pille); die native ist ausgeblendet,
   weil sich systemeigene Scrollleisten je nach Browser nicht abrunden lassen.
