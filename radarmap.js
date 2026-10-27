@@ -13,16 +13,17 @@
   const WMS = 'https://maps.dwd.de/geoserver/dwd/wms';
   const CAPS = 'https://maps.dwd.de/geoserver/dwd/Niederschlagsradar/wms?service=WMS&version=1.1.1&request=GetCapabilities';
   const LAYER = 'dwd:Niederschlagsradar';
-  const FRAME_STEP = 10 * 60000;   // Abstand der Zeitbilder
-  const FRAMES_BACK = 6;           // 1 Stunde zurück vor dem letzten Messbild
+  const FRAME_STEP = 10 * 60000;   // Abstand der Zeitbilder (der DWD verlangt Zeiten genau auf seinem Raster, sonst kommt ein leeres Bild)
+  const FRAMES_BACK = 3;           // 30 Minuten zurück vor dem letzten Messbild
   const FRAMES_FWD = 12;           // 2 Stunden voraus
+  const PARALLEL = 2;              // so viele Zeitbilder gleichzeitig vorladen (Handy: wenige Verbindungen pro Server)
   const REBUILD_MS = 10 * 60000;   // Zeitbilder höchstens so alt
   const OPACITY = 0.78;
   const AREA = { latMin: 46, latMax: 56, lonMin: 3.5, lonMax: 17.5 }; // grob das Radargebiet
 
   const $ = (id) => document.getElementById(id);
-  const state = { night: false, base: null, labels: null, place: null, map: null, marker: null, layers: [], frames: [], idx: 0, builtAt: 0, visible: false, playing: false, timer: null, building: false };
-  const START_ZOOM = 12.5;         // ~5-7 km Ausschnitt am Handy
+  const state = { fillId: 0, loaded: [], okTiles: [], errTiles: [], night: false, base: null, labels: null, place: null, map: null, marker: null, layers: [], frames: [], idx: 0, builtAt: 0, visible: false, playing: false, timer: null, building: false };
+  const START_ZOOM = 10.5;         // ca. 20-30 km Ausschnitt am Handy
 
   const inArea = (p) => p && p.lat > AREA.latMin && p.lat < AREA.latMax && p.lon > AREA.lonMin && p.lon < AREA.lonMax;
 
@@ -42,10 +43,16 @@
       const parts = dim.textContent.trim().split(',').map((s) => s.trim()).filter(Boolean);
       if (!parts.length) continue;
       const last = parts[parts.length - 1];
-      let start, end;
-      if (last.includes('/')) { const p = last.split('/'); start = Date.parse(p[0]); end = Date.parse(p[1]); }
-      else { start = Date.parse(parts[0]); end = Date.parse(last); }
-      if (isFinite(start) && isFinite(end) && end > start) return { start, end };
+      let start, end, period = 0;
+      if (last.includes('/')) {
+        const p = last.split('/'); start = Date.parse(p[0]); end = Date.parse(p[1]);
+        const m = /^P(?:T(?:(\d+)H)?(?:(\d+)M)?)$/.exec(p[2] || '');
+        if (m) period = ((Number(m[1]) || 0) * 60 + (Number(m[2]) || 0)) * 60000;
+      } else {
+        start = Date.parse(parts[0]); end = Date.parse(last);
+        if (parts.length > 1) period = end - Date.parse(parts[parts.length - 2]);
+      }
+      if (isFinite(start) && isFinite(end) && end > start) return { start, end, period };
     }
     return null;
   }
@@ -53,7 +60,7 @@
   async function getExtent() {
     try {
       const ctl = new AbortController();
-      const to = setTimeout(() => ctl.abort(), 7000);
+      const to = setTimeout(() => ctl.abort(), 4000);
       const r = await fetch(CAPS, { signal: ctl.signal });
       clearTimeout(to);
       if (!r.ok) throw new Error('HTTP ' + r.status);
@@ -63,18 +70,21 @@
     } catch (e) {
       console.warn('Radar-Zeitbereich nicht abrufbar, rechne selbst:', e && e.message);
       // Ersatz: letztes Messbild ca. 10 Minuten alt, Vorhersage 2 Stunden danach
-      const latest = Math.floor((Date.now() - 10 * 60000) / 300000) * 300000;
-      return { start: latest - 120 * 60000, end: latest + 120 * 60000, guessed: true };
+      // Auf das 10-Minuten-Raster (volle Zehnerminuten) abgerundet, weil der DWD nur Zeiten auf seinem Raster annimmt
+      const latest = Math.floor((Date.now() - 10 * 60000) / FRAME_STEP) * FRAME_STEP;
+      return { start: latest - 120 * 60000, end: latest + 120 * 60000, period: 300000, guessed: true };
     }
   }
 
+  // Zeitbilder vom Ende rückwärts im 10-Minuten-Raster (Vielfaches der Periode des Dienstes), damit jede Zeit auf dessen Raster liegt
   function buildFrames(ext) {
+    const per = ext.period > 0 ? ext.period : 300000;
+    const step = per * Math.max(1, Math.round(FRAME_STEP / per));
     const latestObs = ext.end - 120 * 60000;         // Ende der Vorhersage minus 2 Stunden = letztes Messbild
-    const first = Math.max(ext.start, latestObs - FRAMES_BACK * FRAME_STEP);
+    const lower = Math.max(ext.start, latestObs - FRAMES_BACK * step);
     const out = [];
-    for (let t = first; t <= ext.end + 1; t += FRAME_STEP) out.push(t);
-    if (out.length < 3) return [];
-    return out.slice(0, FRAMES_BACK + FRAMES_FWD + 1);
+    for (let t = ext.end; t >= lower - 1 && out.length < FRAMES_BACK + FRAMES_FWD + 1; t -= step) out.unshift(t);
+    return out.length < 3 ? [] : out;
   }
 
   const nowIndex = (frames) => {
@@ -99,12 +109,24 @@
     if (!state.frames.length) return;
     i = Math.max(0, Math.min(state.frames.length - 1, i));
     state.idx = i;
+    if (!state.layers[i] && state.map) { // Zeitbild noch nicht geladen (Schieberegler vorgezogen): sofort anfordern
+      state.layers[i] = mkLayer(state.frames[i], i, OPACITY);
+      state.layers[i].addTo(state.map);
+    }
     state.layers.forEach((l, k) => { if (l) l.setOpacity(k === i ? OPACITY : 0); });
     const s = $('radarSlider');
     if (s && Number(s.value) !== i) s.value = String(i);
-    const t = state.frames[i], lb = labelFor(t);
+    drawLabel();
+  }
+
+  function drawLabel() {
+    const i = state.idx, t = state.frames[i];
+    if (t == null) return;
+    const lb = labelFor(t);
+    let st = '';
+    if (!state.loaded[i]) st = state.errTiles[i] > 0 && !(state.okTiles[i] > 0) ? ' · nicht verfügbar' : ' · lädt …';
     const out = $('radarTime');
-    if (out) out.innerHTML = `<b>${clock(t)}</b> <small>${lb.rel}</small>`;
+    if (out) out.innerHTML = `<b>${clock(t)}</b> <small>${lb.rel}${st}</small>`;
   }
 
   function setPlaying(on) {
@@ -116,8 +138,11 @@
     let dwell = 0;
     state.timer = setInterval(() => {
       if (document.visibilityState !== 'visible') return;
-      if (state.idx >= state.frames.length - 1) { if (++dwell < 3) return; dwell = 0; show(0); return; }
-      show(state.idx + 1);
+      const loadedIdx = state.frames.map((_, k) => k).filter((k) => state.loaded[k]);
+      if (!loadedIdx.length) return;
+      const nxt = loadedIdx.find((k) => k > state.idx);
+      if (nxt === undefined) { if (++dwell < 3) return; dwell = 0; show(loadedIdx[0]); return; }
+      show(nxt);
     }, 450);
   }
 
@@ -130,8 +155,58 @@
 
   /* ---------- Karte ---------- */
   function clearLayers() {
+    state.fillId++;
     state.layers.forEach((l) => { if (l && state.map) state.map.removeLayer(l); });
-    state.layers = [];
+    state.layers = []; state.loaded = []; state.okTiles = []; state.errTiles = [];
+  }
+
+  function mkLayer(t, i, opacity) {
+    state.okTiles[i] = 0; state.errTiles[i] = 0; state.loaded[i] = false;
+    const l = L.tileLayer.wms(WMS, {
+      layers: LAYER, format: 'image/png', transparent: true, version: '1.1.1', styles: '',
+      exceptions: 'application/vnd.ogc.se_blank', time: new Date(t).toISOString(),
+      pane: 'radar', opacity, attribution: '',
+      tileSize: 512, zoomOffset: -1,   // große Kacheln: etwa vier Mal weniger Anfragen
+      updateWhenIdle: true, keepBuffer: 1,
+    });
+    l.on('tileload', () => { state.okTiles[i]++; if (i === state.idx) drawLabel(); });
+    l.on('tileerror', () => { state.errTiles[i]++; if (i === state.idx) drawLabel(); });
+    l.on('load', () => { state.loaded[i] = true; if (i === state.idx) drawLabel(); });
+    return l;
+  }
+
+  // Übrige Zeitbilder nacheinander (je PARALLEL gleichzeitig) laden, zuerst die kommenden, dann die vergangenen;
+  // so konkurrieren sie nicht mit dem sichtbaren Bild um die wenigen Verbindungen.
+  function fill(frames, center) {
+    const id = ++state.fillId;
+    const order = [];
+    for (let i = center + 1; i < frames.length; i++) order.push(i);
+    for (let i = center - 1; i >= 0; i--) order.push(i);
+    const pump = () => {
+      if (id !== state.fillId || state.frames !== frames || !state.map) return;
+      const i = order.shift();
+      if (i === undefined) return;
+      let l = state.layers[i];
+      if (!l) { l = mkLayer(frames[i], i, 0); state.layers[i] = l; l.addTo(state.map); }
+      if (state.loaded[i]) return pump();
+      let done = false;
+      const go = () => { if (done) return; done = true; clearTimeout(tm); pump(); };
+      const tm = setTimeout(go, 5000);
+      l.once('load', go);
+    };
+    for (let k = 0; k < PARALLEL; k++) pump();
+  }
+
+  // Nach Verschieben oder Zoomen nur das sichtbare Bild neu laden, die anderen danach wieder nacheinander
+  function onMoved() {
+    if (!state.frames.length || !state.map) return;
+    clearTimeout(state.moveTimer);
+    state.moveTimer = setTimeout(() => {
+      const frames = state.frames, cur = state.idx;
+      state.fillId++;
+      state.layers.forEach((l, k) => { if (l && k !== cur) { state.map.removeLayer(l); state.layers[k] = null; state.loaded[k] = false; } });
+      setTimeout(() => { if (state.frames === frames) fill(frames, state.idx); }, 600);
+    }, 350);
   }
 
   async function loadFrames() {
@@ -147,31 +222,18 @@
       const slider = $('radarSlider');
       slider.max = String(frames.length - 1);
       const start = nowIndex(frames);
-      let ok = false, errs = 0;
-      const mk = (t, i) => {
-        const l = L.tileLayer.wms(WMS, {
-          layers: LAYER, format: 'image/png', transparent: true, version: '1.1.1', styles: '',
-          exceptions: 'application/vnd.ogc.se_blank', time: new Date(t).toISOString(),
-          pane: 'radar', opacity: i === start ? OPACITY : 0, attribution: '',
-        });
-        if (i === start) {
-          l.on('tileload', () => { ok = true; note(''); });
-          l.on('tileerror', () => { errs++; });
-          setTimeout(() => { if (!ok && errs > 0) note('Radarbilder sind gerade nicht erreichbar.'); }, 8000);
-        }
-        return l;
-      };
       state.layers = new Array(frames.length).fill(null);
-      state.layers[start] = mk(frames[start], start).addTo(state.map);
+      state.layers[start] = mkLayer(frames[start], start, OPACITY);
+      state.layers[start].addTo(state.map);
       show(start);
-      // übrige Zeitbilder nacheinander vorladen, damit das Abspielen flüssig läuft
-      frames.forEach((t, i) => {
-        if (i === start) return;
-        setTimeout(() => {
-          if (state.frames !== frames || !state.map) return;
-          state.layers[i] = mk(t, i).addTo(state.map);
-        }, 150 + Math.abs(i - start) * 140);
-      });
+      // erst wenn das sichtbare Bild da ist (oder nach 6 s), die übrigen nachladen
+      let started = false;
+      const go = () => { if (started) return; started = true; fill(frames, start); };
+      state.layers[start].once('load', go);
+      setTimeout(go, 6000);
+      setTimeout(() => {
+        if (state.frames === frames && !state.loaded[start] && !(state.okTiles[start] > 0) && state.errTiles[start] > 0) note('Radarbilder sind gerade nicht erreichbar.');
+      }, 9000);
       if (ext.guessed) console.info('Radar: Zeitbilder geschätzt');
     } catch (e) {
       console.warn('Radar konnte nicht aufgebaut werden:', e);
@@ -218,6 +280,7 @@
     // Mausrad erst nach Klick, damit man beim Scrollen nicht versehentlich zoomt
     map.on('click', () => map.scrollWheelZoom.enable());
     el.addEventListener('mouseleave', () => map.scrollWheelZoom.disable());
+    map.on('moveend', onMoved);
     state.map = map;
     setTimeout(() => map.invalidateSize(), 200);
     loadFrames();
@@ -249,6 +312,14 @@
   function init() {
     const card = $('radarCard');
     if (!card) return;
+    // Legende: das Farbbild kommt vom DWD selbst (passt damit immer zu den Farben); wird erst beim Aufklappen geladen
+    const lg = $('radarLegend'), img = $('radarLegendImg');
+    if (lg && img) {
+      lg.addEventListener('toggle', () => {
+        if (lg.open && !img.getAttribute('src')) img.src = `${WMS}?service=WMS&version=1.1.1&request=GetLegendGraphic&format=image/png&layer=${encodeURIComponent(LAYER)}&legend_options=fontAntiAliasing:true;dpi:110`;
+      });
+      img.addEventListener('error', () => { lg.hidden = true; });
+    }
     $('radarSlider').addEventListener('input', (e) => { setPlaying(false); show(Number(e.target.value)); });
     $('radarPlay').addEventListener('click', () => { if (state.playing) setPlaying(false); else { if (state.idx >= state.frames.length - 1) show(0); setPlaying(true); } });
     document.addEventListener('visibilitychange', () => { if (document.visibilityState !== 'visible') setPlaying(false); });
