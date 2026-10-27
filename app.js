@@ -22,6 +22,9 @@
   const DROPS_PP = 50;
   // Regenwahrscheinlichkeit nur anzeigen, wenn sie aussagekräftig ist (< PP_MIN gilt als trocken, es erscheint nichts); gerundet auf 10 %.
   const PP_MIN = 20;
+  // DWD-Wetterwarnungen über Bright Sky (optional; Fehler werden still ignoriert). minor (gelb) wird nicht angezeigt, ab "markantes Wetter".
+  const ALERTS_URL = 'https://api.brightsky.dev/alerts';
+  const ALERT_RANK = { moderate: 1, severe: 2, extreme: 3 };
   // Sonnenstunden = "Sonne ohne Wolken davor": Bewölkung <= SUN_CLOUD_MIN zählt voll, >= SUN_CLOUD_MAX gar nicht, dazwischen linear.
   const SUN_CLOUD_MIN = 15;
   const SUN_CLOUD_MAX = 85;
@@ -35,7 +38,7 @@
   const $ = (s) => document.querySelector(s);
   const el = {
     q: $('#q'), locate: $('#locate'), results: $('#results'), main: $('#main'),
-    placeName: $('#placeName'), placeSub: $('#placeSub'), status: $('#status'), note: $('#note'),
+    placeName: $('#placeName'), placeSub: $('#placeSub'), status: $('#status'), note: $('#note'), alerts: $('#alerts'),
     loading: $('#loading'), now: $('#nowCard'), hourly: $('#hourly'), rain: $('#rain'),
     daily: $('#daily'), toggleDays: $('#toggleDays'), hbar: $('#hbar'), hthumb: $('#hthumb'),
   };
@@ -197,6 +200,8 @@
     sun: '<circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/>',
     sunrise: '<path d="M17 18a5 5 0 0 0-10 0M12 2v7M4.22 10.22l1.42 1.42M1 18h2M21 18h2M18.36 11.64l1.42-1.42M23 22H1M8 6l4-4 4 4"/>',
     sunset: '<path d="M17 18a5 5 0 0 0-10 0M12 9V2M4.22 10.22l1.42 1.42M1 18h2M21 18h2M18.36 11.64l1.42-1.42M23 22H1M16 5l-4 4-4-4"/>',
+    uv: '<circle cx="12" cy="12" r="7.6"/><path d="M12 .8v1.6M12 21.6v1.6M.8 12h1.6M21.6 12h1.6M4.1 4.1l1.1 1.1M18.8 18.8l1.1 1.1M4.1 19.9l1.1-1.1M18.8 5.2l1.1-1.1"/><text x="12" y="15.2" text-anchor="middle" font-size="9" font-weight="800" font-family="system-ui, sans-serif" fill="currentColor" stroke="none">UV</text>',
+    alert: '<path d="M12 3.5l9.5 16.5h-19z"/><path d="M12 10v4.5M12 17.2v.1"/>',
     chevron: '<path d="M6 9l6 6 6-6"/>',
     check: '<path d="M5 12.5l4.5 4.5L19 7.5"/>',
   };
@@ -210,6 +215,7 @@
     data: null,       // Open-Meteo-Antwort
     dataPlace: null,  // Koordinaten, zu denen data gehört
     fetchedAt: 0,
+    alerts: [],       // aktive DWD-Warnungen (Bright Sky), optional
     status: 'idle',   // idle | loading | ok | error
     reqId: 0,
     inflight: null,
@@ -452,7 +458,7 @@
        </div>
        <div class="stats">
          ${sunStat('wind', 'Wind (Durchschnitt–Böen)', `${windStr(c.wind_speed_10m, c.wind_gusts_10m)} <small>km/h</small>`)}
-         ${sunStat('sun', 'UV-Index', num(uv) ? `${nf0.format(Math.round(uv))} <small>${uvLabel(uv)}</small>` : '–')}
+         ${sunStat('uv', 'UV-Index', num(uv) ? `${nf0.format(Math.round(uv))} <small>${uvLabel(uv)}</small>` : '–')}
          ${sunStat('sunrise', 'Sonnenaufgang', today.rise ? hhmm(today.rise) : '–')}
          ${sunStat('sunset', 'Sonnenuntergang', today.set ? hhmm(today.set) : '–')}
        </div>`;
@@ -652,11 +658,63 @@
     el.toggleDays.textContent = state.days > 7 ? 'Nur 7 Tage anzeigen' : '14 Tage anzeigen';
   }
 
+  function alertTime(a) {
+    const fmt = (iso, withDay) => {
+      const t = new Date(iso);
+      if (isNaN(t)) return '';
+      const p = new Intl.DateTimeFormat('de-DE', { timeZone: 'Europe/Berlin', weekday: 'short', hour: 'numeric' }).formatToParts(t);
+      const wd = p.find((x) => x.type === 'weekday')?.value, hr = p.find((x) => x.type === 'hour')?.value;
+      const today = new Intl.DateTimeFormat('de-DE', { timeZone: 'Europe/Berlin', weekday: 'short' }).format(new Date());
+      return `${withDay && wd !== today ? wd + ' ' : ''}${Number(hr)} Uhr`;
+    };
+    const onset = new Date(a.onset || a.effective).getTime();
+    if (onset > Date.now() + 10 * 60000) return `ab ${fmt(a.onset || a.effective, true)}`;
+    return a.expires ? `bis ${fmt(a.expires, true)}` : '';
+  }
+
+  function renderAlerts() {
+    const list = state.alerts || [];
+    el.alerts.hidden = !list.length;
+    el.alerts.innerHTML = list.map((a) => {
+      const sev = ['moderate', 'severe', 'extreme'].includes(a.severity) ? a.severity : 'moderate';
+      const title = a.event_de || a.headline_de || 'Wetterwarnung';
+      const text = [a.description_de, a.instruction_de].filter(Boolean).join('\n\n');
+      return `<details class="alert sev-${sev}"><summary>${ui('alert')}<span class="a-t">${esc(title)}</span><span class="a-w">${esc(alertTime(a))}</span>${ui('chevron')}</summary>${text ? `<p>${esc(text)}</p>` : ''}</details>`;
+    }).join('');
+  }
+
+  async function loadAlerts(place) {
+    try {
+      const ctl = new AbortController();
+      const to = setTimeout(() => ctl.abort(), 8000);
+      const r = await fetch(`${ALERTS_URL}?lat=${place.lat.toFixed(3)}&lon=${place.lon.toFixed(3)}`, { signal: ctl.signal });
+      clearTimeout(to);
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      const j = await r.json();
+      if (!state.place || km(state.place, place) >= SAME_PLACE_KM) return;
+      const now = Date.now(), seen = new Map();
+      (j.alerts || []).forEach((a) => {
+        const rank = ALERT_RANK[a.severity];
+        const exp = a.expires ? new Date(a.expires).getTime() : Infinity;
+        const on = new Date(a.onset || a.effective).getTime();
+        if (!rank || exp <= now || on > now + 24 * 3600e3) return;
+        const key = (a.event_de || a.headline_de) + '|' + a.severity;
+        if (!seen.has(key) || exp > new Date(seen.get(key).expires || 0).getTime()) seen.set(key, a);
+      });
+      state.alerts = [...seen.values()].sort((a, b) => ALERT_RANK[b.severity] - ALERT_RANK[a.severity]).slice(0, 3);
+    } catch (e) {
+      console.warn('Warnungen nicht verfügbar:', e && e.message);
+      state.alerts = [];
+    }
+    renderAlerts();
+  }
+
   function renderAll() {
     const d = state.data;
     el.main.classList.toggle('empty', !d);
     renderPlace();
     renderStatus();
+    renderAlerts();
     if (!d) return;
     applyTheme(d.current?.weather_code, isDayNow(d));
     renderNow(d);
@@ -671,7 +729,7 @@
   async function load(place, { force = false } = {}) {
     state.place = place;
     const same = state.dataPlace && km(state.dataPlace, place) < SAME_PLACE_KM;
-    if (!same) { state.data = null; state.dataPlace = null; state.fetchedAt = 0; }
+    if (!same) { state.data = null; state.dataPlace = null; state.fetchedAt = 0; state.alerts = []; }
 
     if (state.inflight && km(state.inflight.place, place) < SAME_PLACE_KM) { renderAll(); return; }
     if (!force && same && state.data && Date.now() - state.fetchedAt < 60000) { renderAll(); return; }
@@ -688,6 +746,7 @@
       state.fetchedAt = Date.now();
       state.status = 'ok';
       saveJSON(KEY_CACHE, { ts: state.fetchedAt, place: state.dataPlace, data });
+      loadAlerts(place); // nicht blockierend
     } catch (e) {
       if (id !== state.reqId) return;
       console.warn('Vorhersage konnte nicht geladen werden:', e);

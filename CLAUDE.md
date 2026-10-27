@@ -35,6 +35,10 @@ Persönliche, möglichst simple Wetterseite für Niklas (Hombruch, Dortmund). Wi
   weil auch dünne Wolken noch genug direkte Strahlung durchlassen. Jetzt pro Stunde `min(sunshine_duration/3600, wolkenfreier Anteil)`, Anteil aus `cloud_cover`
   (<= 15 % = 1, >= 85 % = 0, dazwischen linear), summiert über den Tag (`daySunHours()`, Schwellen `SUN_CLOUD_MIN/MAX`). Beide stündlichen Variablen sind optional
   (bei HTTP 400 wird ohne sie neu abgefragt, dann fehlt die Anzeige). Modellwert, ab Tag 8 nur Trend; ist das Bewölkungsmodell selbst falsch (z. B. Hochnebel), hilft das nicht.
+- Unwetterwarnungen (DWD über Bright Sky `https://api.brightsky.dev/alerts?lat=&lon=`, Niklas wollte sie "clean, nur wenn eine da ist"): schmale Streifen unter dem Ortsnamen, nur ab
+  Stufe `moderate` (markantes Wetter; `minor`/gelb bleibt weg), nur aktive oder in den nächsten 24 h beginnende, max. 3, gleiche Ereignisse zusammengefasst, Tippen klappt die Beschreibung auf.
+  Optional und nicht blockierend (`loadAlerts()`), bei Fehler oder ohne Warnung ist nichts zu sehen. Nur Deutschland. **Nicht gegen die echte API geprüft** (Feldnamen `severity`, `event_de`,
+  `onset`, `expires`, `description_de`, `instruction_de` und CORS aus eigenem Wissen).
 - Regenwahrscheinlichkeit (Stündlich, Tage, 8-h-Kacheln) wird erst ab 20 % angezeigt (`PP_MIN`, `ppHtml()`), darunter steht nichts (= trocken), darüber auf 10 % gerundet.
   Hintergrund: Open-Meteo-Wert = Chance auf >= 0,1 mm in der Stunde, Tageswert = Maximum über die Stunden, also keine "Chance, dass es heute regnet". Werte wie 2 % oder 10 % verwirren nur.
 - Regenleiste komplett trocken: ruhige, halbtransparente Leiste (weder grell hell noch dunkel) mit Haken und "Kein Regen". Niederschlag in mm (1 mm = 1 Liter pro m²), Hinweis steht in der Legende.
@@ -62,5 +66,6 @@ Persönliche, möglichst simple Wetterseite für Niklas (Hombruch, Dortmund). Wi
   und ob `forecast_minutely_15` wie erwartet ab dem aktuellen Viertelstunden-Slot beginnt. Bei Auffälligkeiten zuerst dort schauen.
 
 ## Ideen für später (nicht beauftragt)
-- Regenleiste mit 5-Minuten-Quelle (z. B. DWD-Radar über Bright Sky), falls 15 Minuten nicht reichen.
+- Regenleiste mit 5-Minuten-Quelle: Bright Sky `/radar` (DWD RV-Komposit, 1-km-Raster, 5-Minuten-Bilder, bis 120 Minuten Vorhersage, Wert = 0,01 mm pro 5 min, Parameter `lat`, `lon`, `distance`,
+  `format`; polare Projektion, `latlon_position` gibt die Position im Raster; Antwort `compressed` = base64 + zlib, im Browser z. B. mit `DecompressionStream`). CORS unbekannt, vor dem Bau prüfen.
 - Schwellenwerte der Regenfarben nach Gefühl nachjustieren.

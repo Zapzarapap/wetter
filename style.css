@@ -165,6 +165,21 @@ main:not(.empty) > .loading { display: none; }
 
 .wi { width: 100%; height: 100%; display: block; }
 
+/* ---------- Wetterwarnungen (nur sichtbar, wenn eine aktiv ist) ---------- */
+.alerts { display: grid; gap: 6px; margin-top: 8px; }
+.alerts[hidden] { display: none; }
+.alert { --ac: #ffd66b; min-width: 0; border-radius: 12px; border: 1px solid var(--line); border-left: 4px solid var(--ac); background: var(--card); -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px); }
+.alert.sev-severe { --ac: #ff9f43; }
+.alert.sev-extreme { --ac: #ff5d5d; }
+.alert summary { display: flex; align-items: center; gap: 8px; padding: 8px 10px; cursor: pointer; list-style: none; font-size: .88rem; }
+.alert summary::-webkit-details-marker { display: none; }
+.alert summary .ic { width: 16px; height: 16px; flex: none; color: var(--ac); }
+.alert summary .ic:last-child { color: var(--fg2); transition: transform .2s; }
+.alert[open] summary .ic:last-child { transform: rotate(180deg); }
+.alert .a-t { min-width: 0; flex: 1; font-weight: 600; overflow-wrap: anywhere; }
+.alert .a-w { flex: none; color: var(--fg2); font-size: .8rem; white-space: nowrap; }
+.alert p { margin: 0; padding: 0 12px 10px; font-size: .8rem; line-height: 1.4; color: var(--fg2); white-space: pre-line; overflow-wrap: anywhere; }
+
 /* ---------- Aktuell ---------- */
 /* Kompakt: links Temperatur + Status, rechts Icon; darunter eine Zeile mit vier Werten. */
 .now-top { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
