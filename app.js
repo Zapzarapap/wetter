@@ -4,6 +4,7 @@
  */
 (() => {
   'use strict';
+  const VERSION = '9'; // muss zu <meta name="app-version"> in index.html passen (bei jeder Änderung beide hochzählen)
 
   /* ------------------------------------------------------------------ */
   /* Konfiguration                                                       */
@@ -586,7 +587,7 @@
     const hasDrops = blocks.some((b) => b.cls === 'drops');
     const msg = hasDrops ? `${ui('drop')}Höchstens Nieselregen` : `${ui('check')}Kein Regen`;
     el.rain.innerHTML =
-      `<div class="raintrack${calm ? ' alldry' : ''}" style="--n:${n}">${cells}${calm ? `<span class="rb-msg${hasDrops ? ' pill' : ''}"><b>${msg}</b></span>` : ''}</div>
+      `<div class="raintrack${calm ? ' alldry' : ''}" style="--n:${n}">${cells}${calm && !hasDrops ? `<span class="rb-msg"><b>${msg}</b></span>` : ''}</div>
        <div class="rainlabels">${labels}</div>
        <p class="rainsummary">${esc(rainSummary(blocks))}</p>`;
   }
@@ -1038,6 +1039,23 @@
       navigator.serviceWorker.addEventListener('controllerchange', () => { if (had) location.reload(); had = true; });
     });
   }
+
+  // Versionsprüfung: läuft hier noch eine alte Datei (Service Worker, Browser-Cache), alles verwerfen und einmal neu laden
+  async function checkVersion() {
+    try {
+      const r = await fetch('index.html?_=' + Date.now(), { cache: 'no-store' });
+      const m = /name="app-version" content="([^"]+)"/.exec(await r.text());
+      if (!m || m[1] === VERSION) return;
+      if (sessionStorage.getItem('wetter-reload') === m[1]) return; // nur ein Versuch je Version, keine Schleife
+      sessionStorage.setItem('wetter-reload', m[1]);
+      if ('caches' in window) await Promise.all((await caches.keys()).map((k) => caches.delete(k)));
+      if ('serviceWorker' in navigator) await Promise.all((await navigator.serviceWorker.getRegistrations()).map((g) => g.unregister()));
+      location.reload();
+    } catch (e) { /* offline: nichts tun */ }
+  }
+  const vEl = document.getElementById('appVersion');
+  if (vEl) vEl.textContent = 'v' + VERSION;
+  checkVersion();
 
   init();
 })();
