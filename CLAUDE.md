@@ -24,7 +24,7 @@ Persönliche, möglichst simple Wetterseite für Niklas (Hombruch, Dortmund). Wi
   Regenleiste (2 h in 15-Minuten-Blöcken), Tage (7, umschaltbar auf 14; ab Tag 8 als "Trend" markiert).
 - Wind wird überall als **Durchschnitt–Böen** in km/h angezeigt (z. B. 24–35). Tageswerte: Durchschnitt aller Stunden des Tages, Böen = Tagesmaximum.
 - Aktuell-Karte: bewusst **kompakt** (erste Überarbeitung mit 2-Spalten-Raster war Niklas "viel zu groß", "keine Excel-Tabelle"): links große Temperatur + Status ("Bedeckt · Gefühlt 9°"),
-  rechts das Icon, darunter eine einzige Zeile mit vier Werten: Wind (Ø–Böen), UV, Sonnenaufgang, Sonnenuntergang. Hoch/Tief nicht gewünscht. Luftfeuchte und "Regen heute" sind
+  rechts das Icon, darunter eine einzige Zeile mit vier zentrierten Werten, jeweils Icon über dem Wert (ohne Text): Wind (Ø–Böen), UV, Sonnenaufgang, Sonnenuntergang. Hoch/Tief nicht gewünscht. Luftfeuchte und "Regen heute" sind
   vorerst raus (`rainTodayHtml()` bleibt im Code, ungenutzt). Rücksetzpunkt auf die Version vor den Layout-Änderungen: Commit f336fe2.
 - Jeder Tag in der Vorhersage ist per Tippen aufklappbar: **drei Blöcke à 8 Stunden, nur mit Uhrzeit, ohne Namen** (Niklas' Wunsch): 22–6, 6–14, 14–22 Uhr
   (eine Reihe, 3 Kacheln). Der Nachtblock 22–6 ist die Nacht, die in diesen Morgen hineinläuft (Vortag 22 Uhr bis 6 Uhr). Zuvor probiert und verworfen:

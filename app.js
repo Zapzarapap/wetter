@@ -440,7 +440,7 @@
     const today = i >= 0 ? { rise: D.sunrise?.[i], set: D.sunset?.[i] } : {};
     const uv = hr ? hr.uv : undefined;
     const stat = (icon, label, val) => `<div class="stat"><div class="lbl">${ui(icon)}${label}</div><div class="val">${val}</div></div>`;
-    // Sonnenauf-/-untergang nur als Icon (Label für Screenreader), damit es auch auf kleinen Handys passt
+    // Alle vier Werte nur als Icon (Label für Screenreader), damit es auch auf kleinen Handys passt
     const sunStat = (icon, label, val) => `<div class="stat iconly"><div class="lbl" role="img" aria-label="${label}" title="${label}">${ui(icon)}</div><div class="val">${val}</div></div>`;
     el.now.innerHTML =
       `<div class="now-top">
@@ -451,8 +451,8 @@
          <div class="now-icon">${iconSvg(c.weather_code, day)}</div>
        </div>
        <div class="stats">
-         ${stat('wind', 'Wind', `${windStr(c.wind_speed_10m, c.wind_gusts_10m)} <small>km/h</small>`)}
-         ${stat('sun', 'UV', num(uv) ? `${nf0.format(Math.round(uv))} <small>${uvLabel(uv)}</small>` : '–')}
+         ${sunStat('wind', 'Wind (Durchschnitt–Böen)', `${windStr(c.wind_speed_10m, c.wind_gusts_10m)} <small>km/h</small>`)}
+         ${sunStat('sun', 'UV-Index', num(uv) ? `${nf0.format(Math.round(uv))} <small>${uvLabel(uv)}</small>` : '–')}
          ${sunStat('sunrise', 'Sonnenaufgang', today.rise ? hhmm(today.rise) : '–')}
          ${sunStat('sunset', 'Sonnenuntergang', today.set ? hhmm(today.set) : '–')}
        </div>`;
