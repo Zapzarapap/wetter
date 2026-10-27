@@ -7,7 +7,7 @@ Persönliche, möglichst simple Wetterseite für Niklas (Hombruch, Dortmund). Wi
 - Reines HTML, CSS und JavaScript. **Kein Framework, kein npm, kein Build-Schritt.** GitHub Pages liefert direkt aus `main` (`/ (root)`).
 - Alle Pfade **relativ** (`style.css`, nicht `/style.css`), weil die Seite unter `/wetter/` liegt.
 - Kein API-Key im Code (Repo ist öffentlich). Open-Meteo braucht keinen.
-- Dateien: `index.html`, `style.css`, `app.js`, `sw.js` (Service Worker), `manifest.webmanifest`, `icons/`.
+- Dateien: `index.html`, `style.css`, `app.js`, `radarmap.js` (Radar-Karte), `sw.js` (Service Worker), `manifest.webmanifest`, `icons/`, `vendor/leaflet/` (Leaflet 1.9.4, BSD-2, unverändert hineinkopiert, kein npm im Projekt).
 
 ## Datenquellen
 - Vorhersage: Open-Meteo `https://api.open-meteo.com/v1/forecast`, `timezone=auto`, km/h, mm.
@@ -21,7 +21,7 @@ Persönliche, möglichst simple Wetterseite für Niklas (Hombruch, Dortmund). Wi
 ## Entscheidungen (mit Niklas abgestimmt)
 - Inhalte von oben nach unten: Suchleiste (mit Fadenkreuz-Button für "Standort neu laden"), Ortsname + Stand, Aktuell
   (siehe unten), Stündlich (48 h, horizontal scrollbar),
-  Regenleiste (2 h in 15-Minuten-Blöcken), Tage (7, umschaltbar auf 14; ab Tag 8 als "Trend" markiert).
+  Regenleiste (2 h in 15-Minuten-Blöcken), Tage (7, umschaltbar auf 14; ab Tag 8 als "Trend" markiert), Radar-Karte (ganz unten, nur Deutschland und Umgebung).
 - Wind wird überall als **Durchschnitt–Böen** in km/h angezeigt (z. B. 24–35). Tageswerte: Durchschnitt aller Stunden des Tages, Böen = Tagesmaximum.
 - Aktuell-Karte: bewusst **kompakt** (erste Überarbeitung mit 2-Spalten-Raster war Niklas "viel zu groß", "keine Excel-Tabelle"): links große Temperatur + Status ("Bedeckt · Gefühlt 9°"),
   rechts das Icon, darunter eine einzige Zeile mit vier zentrierten Werten, jeweils Icon über dem Wert (ohne Text): Wind (Ø–Böen), UV, Sonnenaufgang, Sonnenuntergang. Hoch/Tief nicht gewünscht. Luftfeuchte und "Regen heute" sind
@@ -41,6 +41,17 @@ Persönliche, möglichst simple Wetterseite für Niklas (Hombruch, Dortmund). Wi
   `onset`, `expires`, `description_de`, `instruction_de` und CORS aus eigenem Wissen).
 - Regenwahrscheinlichkeit (Stündlich, Tage, 8-h-Kacheln) wird erst ab 20 % angezeigt (`PP_MIN`, `ppHtml()`), darunter steht nichts (= trocken), darüber auf 10 % gerundet.
   Hintergrund: Open-Meteo-Wert = Chance auf >= 0,1 mm in der Stunde, Tageswert = Maximum über die Stunden, also keine "Chance, dass es heute regnet". Werte wie 2 % oder 10 % verwirren nur.
+- **Radar (27.10., Niklas: "so genau wie möglich", nur kostenlos):**
+  - *Regenleiste* (`loadRadar()`, `radarMm()` in `app.js`): in Deutschland und Umgebung (`inRadarArea`) kommen die 15-Minuten-Blöcke aus Bright Sky `/radar` (DWD RV, 1 km, 5 min, bis +2 h;
+    `lat`, `lon`, `distance=3000`, `format=plain`, `date`/`last_date` explizit gesetzt; Wert 0,01 mm pro 5 min). Pro Bild Mittel über 3 x 3 km um `latlon_position`, pro Block Summe aus drei 5-Minuten-Bildern.
+    Klassen wie gehabt (<0,1 trocken, ...), neu: Radar-Summe 0,02 bis 0,1 mm = "Tropfen" (`RADAR_DROPS_MM`); Gewitter (lila) weiter nur über den Modell-Wettercode. Überschrift der Karte zeigt
+    "Radar", "Modell" oder "Radar + Modell". Radar wird alle 5 min neu geholt; bei Fehler, zu wenigen oder veralteten Bildern (> 20 min) gilt automatisch wieder Open-Meteo.
+  - *Karte* (`radarmap.js`): Leaflet, Kartenbild OpenStreetMap, Radar als WMS-Schicht `dwd:Niederschlagsradar` von `https://maps.dwd.de/geoserver/dwd/wms` (WMS 1.1.1, `exceptions=se_blank`, Parameter `time`).
+    Zeitbereich aus GetCapabilities (virtueller Dienst `.../dwd/Niederschlagsradar/wms`, `Extent`/`Dimension` `time`), sonst selbst geschätzt. 19 Zeitbilder im 10-Minuten-Takt (1 h zurück bis 2 h voraus),
+    pro Bild eine eigene, vorgeladene Schicht (Abspielen schaltet nur die Sichtbarkeit um). Karte wird erst gebaut, wenn sie nahe am Bildschirm ist (`IntersectionObserver`). Am Handy bewegen/zoomen zwei Finger
+    (ein Finger scrollt die Seite), am Desktop Mausrad erst nach Klick. Radar liegt in eigener Pane (Kartenbild wird per CSS entsättigt, Radar nicht). Attribution: OSM und "Radar: Deutscher Wetterdienst" in Karte und Footer.
+  - **Nicht gegen die echten Dienste geprüft** (Entwicklungsumgebung erreicht sie nicht): Bright-Sky-Antwortformat/CORS, Zeitformat und Verfügbarkeit des WMS, ob die Ebene `EPSG:3857` und `time` so akzeptiert.
+    Bei Auffälligkeiten zuerst die Konsole des Browsers lesen (Meldungen beginnen mit "Radar").
 - Regenleiste komplett trocken: ruhige, halbtransparente Leiste (weder grell hell noch dunkel) mit Haken und "Kein Regen". Niederschlag in mm (1 mm = 1 Liter pro m²), Hinweis steht in der Legende.
 - Stündlich hat eine **eigene** Scrollleiste (`#hbar`, per JavaScript, zieh- und antippbar, runde Pille); die native ist ausgeblendet,
   weil sich systemeigene Scrollleisten je nach Browser nicht abrunden lassen.
@@ -66,7 +77,7 @@ Persönliche, möglichst simple Wetterseite für Niklas (Hombruch, Dortmund). Wi
   und ob `forecast_minutely_15` wie erwartet ab dem aktuellen Viertelstunden-Slot beginnt. Bei Auffälligkeiten zuerst dort schauen.
 
 ## Ideen für später (nicht beauftragt)
-- **Radar-Recherche (27.10., nur aus Dokus und Projekten Dritter, von der Entwicklungsumgebung aus nicht abrufbar):**
+- Hintergrund der Radar-Wahl (Recherche 27.10., nur aus Dokus und Projekten Dritter):
   - Aktuell nutzt die Regenleiste Open-Meteo `minutely_15`; für Mitteleuropa laut Open-Meteo nativ aus DWD ICON-D2 (2 km, kein reines Interpolat).
   - **DWD-WMS** `https://maps.dwd.de/geoserver/dwd/wms`, Layer `dwd:Niederschlagsradar` (= RV-Produkt, 1 km, 5 min, -2 h bis +2 h, 49 Bilder, Vorhersage im selben Layer über Zeitparameter),
     ohne Key, Lizenz GeoNutzV / CC BY 4.0, Quellenangabe "Quelle: Deutscher Wetterdienst". Kartenbilder (Leaflet-WMS-Overlay) brauchen kein CORS. Offen: genaues Zeitformat (GetCapabilities),
@@ -74,5 +85,4 @@ Persönliche, möglichst simple Wetterseite für Niklas (Hombruch, Dortmund). Wi
   - **Bright Sky `/radar`**: gleiche DWD-RV-Daten als Zahlenwerte für einen Punkt (`lat`, `lon`, `distance`, `format=plain`, 0,01 mm pro 5 min, bis +120 min). CORS ungeprüft. Die Zahlen eignen sich für die Regenleiste.
   - **RainViewer** ungeeignet: seit 1.1.2026 keine Vorhersage mehr, nur 2 h Rückblick in 10-Minuten-Schritten, max. Zoom 7, 100 Anfragen/min je IP.
   - Dienste mit Key (OpenWeatherMap, Pirate Weather, Tomorrow.io u. a.) scheiden aus, weil das Repo öffentlich ist.
-  - Plan (noch nicht beauftragt): Regenleiste in Deutschland aus Radar (Mittel/Max über kleine Umgebung des Punkts) für die ersten 2 h, sonst ICON-D2; darunter optional Karte (Leaflet im Repo, OSM-Kacheln + DWD-WMS, Zeitleiste).
 - Schwellenwerte der Regenfarben nach Gefühl nachjustieren.

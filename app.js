@@ -25,6 +25,12 @@
   // DWD-Wetterwarnungen über Bright Sky (optional; Fehler werden still ignoriert). minor (gelb) wird nicht angezeigt, ab "markantes Wetter".
   const ALERTS_URL = 'https://api.brightsky.dev/alerts';
   const ALERT_RANK = { moderate: 1, severe: 2, extreme: 3 };
+  // Radar-Werte am Punkt (DWD RV: 1 km, 5 Minuten, bis +2 h) über Bright Sky; nur für Deutschland und Umgebung. Fehler = Regenleiste nutzt das Modell.
+  const RADAR_URL = 'https://api.brightsky.dev/radar';
+  const RADAR_REFRESH_MS = 5 * 60000;
+  const RADAR_MAX_AGE = 20 * 60000;
+  const RADAR_DROPS_MM = 0.02; // Radar-Summe pro 15 min ab hier "ein paar Tropfen", ab 0,1 mm Regen
+  const inRadarArea = (p) => p.lat > 46 && p.lat < 56 && p.lon > 3.5 && p.lon < 17.5;
   // Sonnenstunden = "Sonne ohne Wolken davor": Bewölkung <= SUN_CLOUD_MIN zählt voll, >= SUN_CLOUD_MAX gar nicht, dazwischen linear.
   const SUN_CLOUD_MIN = 15;
   const SUN_CLOUD_MAX = 85;
@@ -38,7 +44,7 @@
   const $ = (s) => document.querySelector(s);
   const el = {
     q: $('#q'), locate: $('#locate'), results: $('#results'), main: $('#main'),
-    placeName: $('#placeName'), placeSub: $('#placeSub'), status: $('#status'), note: $('#note'), alerts: $('#alerts'),
+    placeName: $('#placeName'), placeSub: $('#placeSub'), status: $('#status'), note: $('#note'), alerts: $('#alerts'), rainSrc: $('#rainSrc'),
     loading: $('#loading'), now: $('#nowCard'), hourly: $('#hourly'), rain: $('#rain'),
     daily: $('#daily'), toggleDays: $('#toggleDays'), hbar: $('#hbar'), hthumb: $('#hthumb'),
   };
@@ -216,6 +222,7 @@
     dataPlace: null,  // Koordinaten, zu denen data gehört
     fetchedAt: 0,
     alerts: [],       // aktive DWD-Warnungen (Bright Sky), optional
+    radar: null,      // Radar-Werte am Punkt {place, at, frames:[{ms, mm}]} (Bright Sky), optional
     status: 'idle',   // idle | loading | ok | error
     reqId: 0,
     inflight: null,
@@ -310,6 +317,55 @@
     return 'heavy';
   }
 
+  // Regenmenge (mm) im 15-Minuten-Block laut Radar oder null, wenn kein (frisches) Radar vorliegt.
+  function radarMm(d, slotLocal) {
+    const r = state.radar;
+    if (!r || !state.place || km(r.place, state.place) >= SAME_PLACE_KM) return null;
+    const now = Date.now();
+    const past = r.frames.filter((f) => f.ms <= now);
+    if (!past.length || now - past[past.length - 1].ms > RADAR_MAX_AGE) return null;
+    const start = tMs(slotLocal) - (d.utc_offset_seconds || 0) * 1000, end = start + 900000;
+    let sum = 0, n = 0;
+    r.frames.forEach((f) => { if (f.ms > start && f.ms <= end) { sum += f.mm; n++; } });
+    return n >= 2 ? sum * (3 / n) : null;
+  }
+
+  async function loadRadar(place) {
+    if (!inRadarArea(place)) { state.radar = null; if (state.data) renderRain(state.data); return; }
+    try {
+      const now = Date.now();
+      const iso = (ms) => encodeURIComponent(new Date(ms).toISOString().slice(0, 19) + '+00:00');
+      const ctl = new AbortController();
+      const to = setTimeout(() => ctl.abort(), 10000);
+      const r = await fetch(`${RADAR_URL}?lat=${place.lat.toFixed(4)}&lon=${place.lon.toFixed(4)}&distance=3000&format=plain&date=${iso(now - 20 * 60000)}&last_date=${iso(now + 130 * 60000)}`, { signal: ctl.signal });
+      clearTimeout(to);
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      const j = await r.json();
+      if (!state.place || km(state.place, place) >= SAME_PLACE_KM) return;
+      const pos = j.latlon_position || {};
+      const frames = [];
+      (Array.isArray(j.radar) ? j.radar : []).forEach((rec) => {
+        const g = rec.precipitation_5, ms = Date.parse(rec.timestamp);
+        if (!Array.isArray(g) || !g.length || !Array.isArray(g[0]) || !isFinite(ms)) return;
+        const cy = Math.min(g.length - 1, Math.max(0, Math.round(num(pos.y) ? pos.y : (g.length - 1) / 2)));
+        const cx = Math.min(g[0].length - 1, Math.max(0, Math.round(num(pos.x) ? pos.x : (g[0].length - 1) / 2)));
+        let s = 0, c = 0;
+        for (let y = cy - 1; y <= cy + 1; y++) for (let x = cx - 1; x <= cx + 1; x++) {
+          const v = g[y] && g[y][x];
+          if (num(v) && v >= 0) { s += v; c++; }
+        }
+        if (c) frames.push({ ms, mm: s / c / 100 }); // 0,01 mm pro 5 min -> mm, Mittel über 3 x 3 km
+      });
+      frames.sort((p, q) => p.ms - q.ms);
+      if (frames.length < 6) throw new Error('zu wenige Radarbilder (' + frames.length + ')');
+      state.radar = { place: { lat: place.lat, lon: place.lon }, at: now, frames };
+    } catch (e) {
+      console.warn('Radar am Punkt nicht verfügbar:', e && e.message);
+      state.radar = null;
+    }
+    if (state.data) renderRain(state.data);
+  }
+
   function rainBlocks(d) {
     const m = d.minutely_15;
     if (!m || !m.time) return [];
@@ -318,16 +374,18 @@
     if (i < 0) return [];
     const out = [];
     for (let k = i; k < m.time.length && out.length < RAIN_BLOCKS; k++) {
-      const mm = m.precipitation?.[k];
+      let mm = m.precipitation?.[k];
       const code = m.weather_code ? m.weather_code[k] : hourlyCodeAt(d, m.time[k]);
-      let cls = rainClass(mm, code);
-      if (cls === 'dry') {
+      const rmm = radarMm(d, m.time[k]);
+      let cls = rmm != null ? (rmm >= 0.1 ? rainClass(rmm, code) : rmm >= RADAR_DROPS_MM ? 'drops' : 'dry') : rainClass(mm, code);
+      if (rmm != null) mm = rmm;
+      if (rmm == null && cls === 'dry') {
         const hi = d.hourly?.time ? d.hourly.time.indexOf(m.time[k].slice(0, 13) + ':00') : -1;
         const pp = hi >= 0 ? d.hourly.precipitation_probability?.[hi] : undefined;
         const hmm = hi >= 0 ? d.hourly.precipitation?.[hi] : undefined;
         if ((num(pp) && pp >= DROPS_PP) || (num(hmm) && hmm >= 0.1) || DROPS_CODES.has(code)) cls = 'drops';
       }
-      out.push({ time: m.time[k], mm: num(mm) ? mm : 0, code, cls });
+      out.push({ time: m.time[k], mm: num(mm) ? mm : 0, code, cls, src: rmm != null ? 'radar' : 'model' });
     }
     return out;
   }
@@ -488,6 +546,8 @@
 
   function renderRain(d) {
     const blocks = rainBlocks(d);
+    const nr = blocks.filter((b) => b.src === 'radar').length;
+    el.rainSrc.textContent = `nächste 2 Stunden · ${nr === 0 ? 'Modell' : nr === blocks.length ? 'Radar' : 'Radar + Modell'}`;
     if (blocks.length < 2) {
       el.rain.innerHTML = '<p class="rainsummary">Keine aktuellen Regendaten.</p>';
       return;
@@ -747,6 +807,8 @@
       state.status = 'ok';
       saveJSON(KEY_CACHE, { ts: state.fetchedAt, place: state.dataPlace, data });
       loadAlerts(place); // nicht blockierend
+      loadRadar(place);
+      if (window.RadarMap) RadarMap.update(place);
     } catch (e) {
       if (id !== state.reqId) return;
       console.warn('Vorhersage konnte nicht geladen werden:', e);
@@ -941,12 +1003,14 @@
   }
 
   setInterval(() => { if (document.visibilityState === 'visible') refresh(); }, REFRESH_MS);
+  setInterval(() => { if (document.visibilityState === 'visible' && state.place && state.data) loadRadar(state.place); }, RADAR_REFRESH_MS);
 
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState !== 'visible') return;
     if (Date.now() - state.fetchedAt > REFRESH_MS) {
       if (state.place && state.place.geo) locate(false); else refresh();
     } else if (state.data) {
+      if (state.place && (!state.radar || Date.now() - state.radar.at > RADAR_REFRESH_MS)) loadRadar(state.place);
       renderAll(); // Zeitfenster (Regenleiste, stündlich) an die aktuelle Uhrzeit anpassen
     }
   });

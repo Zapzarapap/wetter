@@ -13,6 +13,7 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-title" content="Wetter">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <link rel="stylesheet" href="vendor/leaflet/leaflet.css">
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -49,7 +50,7 @@
       </section>
 
       <section id="rainCard" class="card" aria-label="Regen in den nächsten 2 Stunden">
-        <h2>Regen <small>nächste 2 Stunden</small></h2>
+        <h2>Regen <small id="rainSrc">nächste 2 Stunden</small></h2>
         <div id="rain"></div>
       </section>
 
@@ -58,14 +59,32 @@
         <div id="daily"></div>
         <button id="toggleDays" class="more" type="button">14 Tage anzeigen</button>
       </section>
+
+      <section id="radarCard" class="card" aria-label="Regenradar" hidden>
+        <h2>Radar <small>1 h zurück, 2 h voraus</small></h2>
+        <div id="radarMap" class="radarmap"></div>
+        <div class="radarbar">
+          <button id="radarPlay" class="rplay" type="button" aria-label="Abspielen">
+            <svg class="ic play" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.5v13l11-6.5z" fill="currentColor"/></svg>
+            <svg class="ic pause" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.5v13M16 5.5v13"/></svg>
+          </button>
+          <input id="radarSlider" type="range" min="0" max="18" step="1" value="0" aria-label="Zeitpunkt">
+          <span id="radarTime" class="radartime"></span>
+        </div>
+        <p id="radarNote" class="note" hidden></p>
+        <p id="radarHint" class="legend"></p>
+      </section>
     </main>
 
     <footer class="foot">
       Wetterdaten: <a href="https://open-meteo.com/" target="_blank" rel="noopener">Open-Meteo.com</a>
-      · Ortsnamen: © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a>
+      · Ortsnamen und Karte: © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a>
+      · Radar und Warnungen: Quelle: Deutscher Wetterdienst (über <a href="https://brightsky.dev/" target="_blank" rel="noopener">Bright Sky</a>)
     </footer>
   </div>
 
+  <script src="vendor/leaflet/leaflet.js"></script>
+  <script src="radarmap.js"></script>
   <script src="app.js"></script>
 </body>
 </html>
