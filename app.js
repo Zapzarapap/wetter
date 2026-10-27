@@ -392,32 +392,28 @@
     return out;
   }
 
-  // Der Satz folgt exakt den Kästchen der Leiste: gleiche Stufen, gleiche Wechselzeiten (Beginn des jeweiligen 15-Minuten-Blocks).
+  // Eine Aussage zum nächsten Ereignis (Regen beginnt / endet), passend zu den Kästchen.
   function rainSummary(blocks) {
     const n = blocks.length;
     const endTime = hhmmFromMs(tMs(blocks[n - 1].time) + 900000);
+    const NAME = { drops: 'Nieselregen', light: 'Leichter Regen', mid: 'Regen', heavy: 'Starker Regen', storm: 'Gewitter', snow: 'Schnee' };
     const kind = (b) => {
-      if (b.cls === 'dry' || b.cls === 'drops') return b.cls;
-      const c = b.code;
-      if (b.cls === 'storm' || c >= 95) return 'storm';
-      if ((c >= 71 && c <= 77) || c === 85 || c === 86) return 'snow';
-      return b.cls; // light, mid, heavy
+      if (b.cls === 'storm' || b.code >= 95) return 'storm';
+      if ((b.code >= 71 && b.code <= 77) || b.code === 85 || b.code === 86) return 'snow';
+      return b.cls;
     };
-    const NAME = { dry: 'trocken', drops: 'ein paar Tropfen', light: 'leichter Regen', mid: 'Regen', heavy: 'starker Regen', storm: 'Gewitter', snow: 'Schnee' };
-    const segs = [];
-    blocks.forEach((b, i) => {
-      const k = kind(b), last = segs[segs.length - 1];
-      if (last && last.k === k) last.to = i; else segs.push({ k, from: i, to: i });
-    });
-    if (segs.length === 1 && segs[0].k === 'dry') return n === RAIN_BLOCKS ? 'Trocken in den nächsten 2 Stunden.' : `Trocken bis ${endTime}.`;
-    const MAX = 3;
-    const parts = segs.slice(0, MAX).map((s, idx) => {
-      const next = segs[idx + 1];
-      return next ? `${NAME[s.k]} bis ${hhmm(blocks[next.from].time)}` : (s.k === 'dry' ? NAME.dry : `${NAME[s.k]} bis mindestens ${endTime}`);
-    });
-    let txt = parts.join(', dann ');
-    if (segs.length > MAX) txt += ', danach wechselhaft';
-    return txt.charAt(0).toUpperCase() + txt.slice(1) + '.';
+    const dry = (b) => b.cls === 'dry';
+    if (dry(blocks[0])) {
+      const i = blocks.findIndex((b) => !dry(b));
+      if (i === -1) return n === RAIN_BLOCKS ? 'Trocken in den nächsten 2 Stunden.' : `Trocken bis ${endTime}.`;
+      return `${NAME[kind(blocks[i])]} ab ${hhmm(blocks[i].time)}.`;
+    }
+    const name = NAME[kind(blocks[0])];
+    const end = blocks.findIndex((b, i) => i > 0 && dry(b));
+    if (end === -1) return `${name} bis mindestens ${endTime}.`;
+    const again = blocks.findIndex((b, i) => i > end && !dry(b));
+    if (again !== -1 && again - end <= 2) return `${name}, kurze Pause zwischen ${hhmm(blocks[end].time)} und ${hhmm(blocks[again].time)}.`;
+    return `${name} bis ${hhmm(blocks[end].time)}.`;
   }
 
   function dailyStart(d) {
@@ -564,7 +560,7 @@
       const tip = `${hhmm(b.time)} Uhr · ${b.cls === 'dry' ? 'trocken' : b.cls === 'drops' ? 'vielleicht ein paar Tropfen' : nf1.format(b.mm) + ' mm'}`;
       const nd = b.cls === 'light' ? 1 : b.cls === 'mid' ? 2 : b.cls === 'heavy' ? 3 : 0;
       const dr = nd ? `<span class="dr">${dropsSvg(nd)}</span>` : '';
-      return `<div class="rb ${b.cls}" title="${tip}">${dr}${txt ? `<span class="mm">${txt}</span>` : ''}</div>`;
+      return `<div class="rb ${b.cls}" title="${tip}">${dr}</div>`;
     }).join('');
     const endMs = tMs(blocks[n - 1].time) + 900000;
     const idxs = [0, 2, 4, 6, 8].filter((i) => i <= n);
@@ -576,10 +572,10 @@
     const hasDrops = blocks.some((b) => b.cls === 'drops');
     const msg = hasDrops ? `${ui('drop')}Höchstens ein paar Tropfen` : `${ui('check')}Kein Regen`;
     const k = (cls, n, label) => `<span class="lk"><i class="${cls}">${n ? dropsSvg(n) : ''}</i>${label}</span>`;
-    const dropsKey = k('l0', 0, 'ein paar Tropfen');
+    const dropsKey = k('l0', 0, 'Nieselregen');
     const legend = calm
       ? (hasDrops ? `<div class="legend">${dropsKey}</div>` : '')
-      : `<div class="legend">${hasDrops ? dropsKey : ''}${k('l1', 1, 'wenig')}${k('l2', 2, 'mehr')}${k('l3', 3, 'viel')}${k('l4', 0, 'Gewitter')}<span class="lnote">Zahlen in mm (1 mm = 1 Liter pro m²)</span></div>`;
+      : `<div class="legend">${hasDrops ? dropsKey : ''}${k('l1', 1, 'leichter Regen')}${k('l2', 2, 'Regen')}${k('l3', 3, 'starker Regen')}${k('l4', 0, 'Gewitter')}</div>`;
     el.rain.innerHTML =
       `<div class="raintrack${calm ? ' alldry' : ''}" style="--n:${n}">${cells}${calm ? `<span class="rb-msg${hasDrops ? ' pill' : ''}"><b>${msg}</b></span>` : ''}</div>
        <div class="rainlabels">${labels}</div>

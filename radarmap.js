@@ -327,13 +327,14 @@
   function init() {
     const card = $('radarCard');
     if (!card) return;
-    // Legende: das Farbbild kommt vom DWD selbst (passt damit immer zu den Farben); wird erst beim Aufklappen geladen
-    const lg = $('radarLegend'), img = $('radarLegendImg');
-    if (lg && img) {
-      lg.addEventListener('toggle', () => {
-        if (lg.open && !img.getAttribute('src')) img.src = `${WMS}?service=WMS&version=1.1.1&request=GetLegendGraphic&format=image/png&layer=${encodeURIComponent(LAYER)}&transparent=true&legend_options=fontColor:0xFFFFFF;fontAntiAliasing:true;forceTitles:off;columns:2;dpi:140`;
-      });
-      img.addEventListener('error', () => { lg.hidden = true; });
+    // Legende: eigene Farbskala (DWD-Klassen in mm/h), Farben vom DWD-Bild abgelesen
+    const lb = $('radarLegendBox');
+    if (lb) {
+      const C = [['#33ffff', '0,1–0,2'], ['#1fcc99', '0,2–0,4'], ['#009933', '0,4–1'], ['#4db31a', '1–2'], ['#99cc00', '2–3'], ['#ccdd00', '3–5'], ['#ffff00', '5–7,5'],
+        ['#ffc000', '7,5–10'], ['#ff8c00', '10–15'], ['#ff4500', '15–30'], ['#ff0000', '30–45'], ['#e6004d', '45–75'], ['#cc0099', '75–100'], ['#6a00cc', '100–150'], ['#0000ff', 'ab 150']];
+      const n = C.length;
+      const stops = C.map((c, k) => `${c[0]} ${(((k + 0.5) / n) * 100).toFixed(2)}%`).join(',');
+      lb.innerHTML = `<div class="lgbar" style="background:linear-gradient(to bottom,${stops})"></div><ul class="lglist">${C.map((c) => `<li>${c[1]} <small>mm/h</small></li>`).join('')}</ul>`;
     }
     $('radarSlider').addEventListener('input', (e) => { setPlaying(false); show(Number(e.target.value)); });
     $('radarPlay').addEventListener('click', () => { if (state.playing) setPlaying(false); else { if (state.idx >= state.frames.length - 1) show(0); setPlaying(true); } });

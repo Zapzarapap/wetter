@@ -190,8 +190,10 @@ main:not(.empty) > .loading { display: none; }
 .rlegend summary::-webkit-details-marker { display: none; }
 .rlegend summary::after { content: ''; width: 7px; height: 7px; margin-right: 2px; border-right: 1.6px solid currentColor; border-bottom: 1.6px solid currentColor; transform: rotate(45deg) translateY(-2px); transition: transform .2s; }
 .rlegend[open] summary::after { transform: rotate(-135deg) translateY(-2px); }
-.rlegend .rlbox { margin-top: 8px; padding: 8px 10px; max-height: 300px; overflow: auto; border-radius: 12px; background: rgba(255, 255, 255, .1); }
-.rlegend img { display: block; max-width: none; height: auto; margin: 0 auto; }
+.rlegend .rlbox { display: flex; gap: 12px; margin-top: 8px; padding: 12px 14px; border-radius: 12px; background: rgba(255, 255, 255, .1); }
+.rlegend .lgbar { flex: none; width: 16px; border-radius: 8px; box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .25); }
+.rlegend .lglist { flex: 1; margin: 0; padding: 0; list-style: none; display: grid; grid-auto-rows: 22px; align-items: center; font-size: .82rem; font-variant-numeric: tabular-nums; }
+.rlegend .lglist small { color: var(--fg3); font-size: .72rem; }
 .rlegend[hidden] { display: none; }
 
 /* ---------- Wetterwarnungen (nur sichtbar, wenn eine aktiv ist) ---------- */
@@ -279,7 +281,7 @@ main:not(.empty) > .loading { display: none; }
 .raintrack {
   position: relative;
   display: grid; grid-template-columns: repeat(var(--n, 8), minmax(0, 1fr)); gap: 3px;
-  height: 40px; padding: 4px;
+  height: 58px; padding: 4px;
   background: var(--track);
   border-radius: 12px;
 }
@@ -296,8 +298,7 @@ main:not(.empty) > .loading { display: none; }
 .rb.mid   { background: #4a9dff; color: #fff; }
 .rb.heavy { background: #1f4fd8; color: #fff; }
 .rb .dr { display: flex; flex-direction: column; align-items: center; gap: 2px; }
-.rb .dr svg { width: 9px; height: 9px; fill: currentColor; stroke: none; }
-.rb .mm { font-size: .58rem; opacity: .9; }
+.rb .dr svg { width: 14px; height: 14px; fill: currentColor; stroke: none; }
 .rb.storm { background: #a855f7; color: #fff; }
 
 /* Komplett trocken: helle, ruhige Leiste statt dunklem Kasten */
@@ -321,8 +322,8 @@ main:not(.empty) > .loading { display: none; }
 
 .legend { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; margin-top: 10px; font-size: .72rem; color: var(--fg2, var(--fg3)); }
 .legend .lk { display: inline-flex; align-items: center; gap: 6px; }
-.legend i { display: inline-flex; align-items: center; justify-content: center; gap: 1px; min-width: 30px; height: 18px; padding: 0 5px; border-radius: 6px; box-sizing: border-box; }
-.legend i svg { width: 7px; height: 7px; fill: currentColor; stroke: none; }
+.legend i { display: inline-flex; align-items: center; justify-content: center; gap: 1px; min-width: 34px; height: 22px; padding: 0 5px; border-radius: 6px; box-sizing: border-box; }
+.legend i svg { width: 9px; height: 9px; fill: currentColor; stroke: none; }
 .legend .l0 { background: #d4ebff; }
 .legend .l1 { background: #8ccaff; color: #0a2a52; } .legend .l2 { background: #4a9dff; color: #fff; }
 .legend .l3 { background: #1f4fd8; color: #fff; } .legend .l4 { background: #a855f7; }
