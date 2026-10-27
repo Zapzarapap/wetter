@@ -4,9 +4,12 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>Wetter</title>
-  <meta name="app-version" content="9">
+  <meta name="app-version" content="10">
   <meta name="description" content="Persönliche Wetterseite">
   <meta name="theme-color" content="#2a7fe3">
+  <link rel="preconnect" href="https://maps.dwd.de" crossorigin>
+  <link rel="preconnect" href="https://server.arcgisonline.com" crossorigin>
+  <link rel="preconnect" href="https://api.brightsky.dev" crossorigin>
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
   <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
@@ -15,7 +18,7 @@
   <meta name="apple-mobile-web-app-title" content="Wetter">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <link rel="stylesheet" href="vendor/leaflet/leaflet.css">
-  <link rel="stylesheet" href="style.css?v=9">
+  <link rel="stylesheet" href="style.css?v=10">
 </head>
 <body>
   <div class="app">
@@ -89,7 +92,7 @@
   </div>
 
   <script src="vendor/leaflet/leaflet.js"></script>
-  <script src="radarmap.js?v=9"></script>
-  <script src="app.js?v=9"></script>
+  <script src="radarmap.js?v=10"></script>
+  <script src="app.js?v=10"></script>
 </body>
 </html>

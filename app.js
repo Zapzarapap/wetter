@@ -4,7 +4,7 @@
  */
 (() => {
   'use strict';
-  const VERSION = '9'; // muss zu <meta name="app-version"> in index.html passen (bei jeder Änderung beide hochzählen)
+  const VERSION = '10'; // muss zu <meta name="app-version"> in index.html passen (bei jeder Änderung beide hochzählen)
 
   /* ------------------------------------------------------------------ */
   /* Konfiguration                                                       */
