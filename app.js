@@ -412,7 +412,9 @@
     if (first > 0) return `Trocken bis ${hhmm(blocks[first].time)}, dann ${word(blocks[first])}.`;
     const end = blocks.findIndex((b, i) => i > 0 && !wet(b));
     if (end === -1) return `${word(blocks[0])} bis mindestens ${endTime}.`;
-    let s = `${word(blocks[0])} bis ${hhmm(blocks[end].time)}, danach trocken.`;
+    // Tropfen-Blöcke nach dem Regen stehen auch in der Leiste (gepunktet), also auch im Satz erwähnen
+    const dropsAfter = blocks.some((b, i) => i >= end && b.cls === 'drops');
+    let s = `${word(blocks[0])} bis ${hhmm(blocks[end].time)}, danach ${dropsAfter ? 'trocken, vielleicht noch ein paar Tropfen' : 'trocken'}.`;
     const again = blocks.findIndex((b, i) => i > end && wet(b));
     if (again !== -1) s += ` Ab ${hhmm(blocks[again].time)} wieder ${word(blocks[again])}.`;
     return s;

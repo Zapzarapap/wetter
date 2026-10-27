@@ -167,6 +167,7 @@
       exceptions: 'application/vnd.ogc.se_blank', time: new Date(t).toISOString(),
       pane: 'radar', opacity, attribution: '',
       tileSize: 512, zoomOffset: -1,   // große Kacheln: etwa vier Mal weniger Anfragen
+      interpolations: 'Bilinear', // GeoServer-Zusatz: glattere Werte statt harter 1-km-Stufen (wird ignoriert, wenn nicht unterstützt)
       updateWhenIdle: true, keepBuffer: 1,
     });
     l.on('tileload', () => { state.okTiles[i]++; if (i === state.idx) drawLabel(); });
@@ -198,6 +199,17 @@
   }
 
   // Nach Verschieben oder Zoomen nur das sichtbare Bild neu laden, die anderen danach wieder nacheinander
+  // Das Radar hat 1-km-Pixel und wirkt kantig. Leichtes Weichzeichnen (Anteil eines Pixels, wächst mit dem Zoom) macht
+  // daraus weiche Flächen. Kostet fast nichts, weil die Grafikkarte es übernimmt.
+  function softenRadar() {
+    const map = softenRadar.map;
+    if (!map || !state.place) return;
+    const mPerPx = 156543.03 * Math.cos(state.place.lat * Math.PI / 180) / Math.pow(2, map.getZoom());
+    const pxPerKm = 1000 / mPerPx;
+    const b = Math.max(0.6, Math.min(7, pxPerKm * 0.3));
+    map.getPane('radar').style.filter = `blur(${b.toFixed(1)}px)`;
+  }
+
   function onMoved() {
     if (!state.frames.length || !state.map) return;
     clearTimeout(state.moveTimer);
@@ -270,6 +282,8 @@
     map.createPane('radar');
     map.getPane('radar').style.zIndex = 250;
     map.getPane('radar').style.pointerEvents = 'none';
+    map.on('zoomend', softenRadar);
+    softenRadar.map = map;
     map.createPane('labels');      // Ortsnamen über dem Radar
     map.getPane('labels').style.zIndex = 350;
     map.getPane('labels').style.pointerEvents = 'none';
@@ -281,6 +295,7 @@
     map.on('click', () => map.scrollWheelZoom.enable());
     el.addEventListener('mouseleave', () => map.scrollWheelZoom.disable());
     map.on('moveend', onMoved);
+    softenRadar();
     state.map = map;
     setTimeout(() => map.invalidateSize(), 200);
     loadFrames();
@@ -316,7 +331,7 @@
     const lg = $('radarLegend'), img = $('radarLegendImg');
     if (lg && img) {
       lg.addEventListener('toggle', () => {
-        if (lg.open && !img.getAttribute('src')) img.src = `${WMS}?service=WMS&version=1.1.1&request=GetLegendGraphic&format=image/png&layer=${encodeURIComponent(LAYER)}&legend_options=fontAntiAliasing:true;dpi:110`;
+        if (lg.open && !img.getAttribute('src')) img.src = `${WMS}?service=WMS&version=1.1.1&request=GetLegendGraphic&format=image/png&layer=${encodeURIComponent(LAYER)}&transparent=true&legend_options=fontColor:0xFFFFFF;fontAntiAliasing:true;forceTitles:off;layout:horizontal;dpi:110`;
       });
       img.addEventListener('error', () => { lg.hidden = true; });
     }
