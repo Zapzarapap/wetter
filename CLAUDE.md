@@ -30,6 +30,9 @@ Persönliche, möglichst simple Wetterseite für Niklas (Hombruch, Dortmund). Wi
   (eine Reihe, 3 Kacheln). Der Nachtblock 22–6 ist die Nacht, die in diesen Morgen hineinläuft (Vortag 22 Uhr bis 6 Uhr). Zuvor probiert und verworfen:
   Blöcke mit Namen (4/6/8 Stück, ungleich lange und 3-/4-Stunden-Raster). Zeiten stehen in der Konstante `SEGS` in `app.js`. Pro Kachel: Icon, Ø-Temperatur,
   Regenwahrscheinlichkeit (Max), Regenmenge (Summe), Wind. Farbbalken oben nach Regenmenge (Summe über 8 h: <0,1 trocken, <2 hell, <6 mittel, sonst dunkel, Gewitter lila).
+- Sonnenstunden pro Tag (gelb, unter dem Wetter-Icon in der Tageszeile, auf 0,5 h gerundet): Open-Meteo `daily=sunshine_duration`. Nicht aus Wettercode oder Bewölkung
+  ableiten (dann kämen "12 h" bei kurzem Aufklaren oder "0 h" ohne volle Sonnenstunde heraus): Der Wert wird aus der direkten Strahlung (> 120 W/m², WMO) gerechnet,
+  teilweise Sonne zählt anteilig. Modellwert, ab Tag 8 nur Trend. Ist die Variable optional abgesichert (bei HTTP 400 wird ohne sie neu abgefragt).
 - Regenleiste komplett trocken: ruhige, halbtransparente Leiste (weder grell hell noch dunkel) mit Haken und "Kein Regen". Niederschlag in mm (1 mm = 1 Liter pro m²), Hinweis steht in der Legende.
 - Stündlich hat eine **eigene** Scrollleiste (`#hbar`, per JavaScript, zieh- und antippbar, runde Pille); die native ist ausgeblendet,
   weil sich systemeigene Scrollleisten je nach Browser nicht abrunden lassen.

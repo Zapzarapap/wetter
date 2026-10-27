@@ -222,7 +222,7 @@
       current: 'temperature_2m,apparent_temperature,relative_humidity_2m,weather_code,wind_speed_10m,wind_gusts_10m,is_day',
       hourly: 'temperature_2m,precipitation_probability,precipitation,weather_code,wind_speed_10m,wind_gusts_10m,is_day,uv_index',
       minutely_15: full ? 'precipitation,weather_code' : 'precipitation',
-      daily: 'weather_code,temperature_2m_max,temperature_2m_min,precipitation_sum,precipitation_probability_max,wind_speed_10m_max,wind_gusts_10m_max,sunrise,sunset,uv_index_max',
+      daily: 'weather_code,temperature_2m_max,temperature_2m_min,precipitation_sum,precipitation_probability_max,wind_speed_10m_max,wind_gusts_10m_max,sunrise,sunset,uv_index_max' + (full ? ',sunshine_duration' : ''),
       timezone: 'auto',
       forecast_days: '14',
       forecast_minutely_15: String(RAIN_BLOCKS + 1),
@@ -578,6 +578,14 @@
     </div>`;
   }
 
+  // Sonnenstunden: Open-Meteo rechnet pro Stunde die Sekunden mit direkter Sonne (Strahlung > 120 W/m², WMO-Definition).
+  // Teilweise Sonne zählt also anteilig (20 min Sonne = 1/3 h), weder alles noch nichts. Gerundet auf halbe Stunden.
+  function sunHtml(sec) {
+    if (!num(sec)) return '';
+    const h = Math.round((sec / 3600) * 2) / 2;
+    return `<span class="d-sun" title="Sonnenschein: ca. ${nf1.format(sec / 3600)} Stunden">${ui('sun')}${nf1.format(h)} h</span>`;
+  }
+
   function renderDaily(d) {
     const D = d.daily;
     const start = dailyStart(d);
@@ -611,7 +619,7 @@
       html += `<div class="day${open ? ' open' : ''}">
         <button class="drow${trend ? ' trend' : ''}" type="button" data-date="${date}" aria-expanded="${open}">
           <span class="d-day"><b>${r === 0 ? 'Heute' : weekday(date)}</b><small>${date.slice(8, 10)}.${date.slice(5, 7)}.</small></span>
-          <span class="d-ico">${iconSvg(D.weather_code[i], 1)}</span>
+          <span class="d-ico"><span class="d-wi">${iconSvg(D.weather_code[i], 1)}</span>${sunHtml(D.sunshine_duration?.[i])}</span>
           <span class="d-temp"><span class="lo">${deg(lo)}</span><span class="bar"><i style="left:${left.toFixed(1)}%;width:${width.toFixed(1)}%"></i></span><span class="hi">${deg(hi)}</span></span>
           <span class="d-rain"><span>${ui('drop')}${num(pp) ? Math.round(pp) + '%' : '–'}</span>${num(sum) && sum >= 0.1 ? `<small>${nf1.format(sum)} mm</small>` : ''}</span>
           <span class="d-gust">${ui('wind')}${windStr(wAvg, D.wind_gusts_10m_max?.[i])}</span>
