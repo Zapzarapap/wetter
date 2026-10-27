@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Wetter</title>
+  <meta name="description" content="Persönliche Wetterseite">
+  <meta name="theme-color" content="#2a7fe3">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="Wetter">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="app">
+
+    <header class="search">
+      <div class="searchbox">
+        <svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6.5"/><path d="M16 16l5 5"/></svg>
+        <input id="q" type="search" placeholder="Ort suchen" autocomplete="off" autocorrect="off" autocapitalize="words" spellcheck="false" enterkeyhint="search" aria-label="Ort suchen">
+        <button id="locate" class="locate" type="button" aria-label="Mein Standort neu laden" title="Mein Standort">
+          <svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="6.5"/><path d="M12 2v6M12 16v6M2 12h6M16 12h6"/><circle cx="12" cy="12" r="1.2" fill="currentColor" stroke="none"/></svg>
+        </button>
+      </div>
+      <ul id="results" class="results" hidden></ul>
+    </header>
+
+    <main id="main" class="empty">
+      <section class="place">
+        <h1 id="placeName">Wetter</h1>
+        <p id="placeSub" class="sub"></p>
+        <button id="status" class="status" type="button">Lade…</button>
+        <p id="note" class="note" hidden></p>
+      </section>
+
+      <section id="loading" class="card loading">Wetterdaten werden geladen…</section>
+
+      <section id="nowCard" class="card now" aria-label="Aktuelles Wetter"></section>
+
+      <section id="hourlyCard" class="card" aria-label="Stündliche Vorhersage">
+        <h2>Stündlich <small>Regen · Böen in km/h</small></h2>
+        <div id="hourly" class="hourly" tabindex="0"></div>
+      </section>
+
+      <section id="rainCard" class="card" aria-label="Regen in den nächsten 2 Stunden">
+        <h2>Regen <small>nächste 2 Stunden</small></h2>
+        <div id="rain"></div>
+      </section>
+
+      <section id="dailyCard" class="card" aria-label="Tagesvorhersage">
+        <h2>Vorhersage</h2>
+        <div id="daily"></div>
+        <button id="toggleDays" class="more" type="button">14 Tage anzeigen</button>
+      </section>
+    </main>
+
+    <footer class="foot">
+      Wetterdaten: <a href="https://open-meteo.com/" target="_blank" rel="noopener">Open-Meteo.com</a>
+      · Ortsnamen: © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a>
+    </footer>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
