@@ -21,7 +21,8 @@
   const AREA = { latMin: 46, latMax: 56, lonMin: 3.5, lonMax: 17.5 }; // grob das Radargebiet
 
   const $ = (id) => document.getElementById(id);
-  const state = { night: false, base: null, place: null, map: null, marker: null, layers: [], frames: [], idx: 0, builtAt: 0, visible: false, playing: false, timer: null, building: false };
+  const state = { night: false, base: null, labels: null, place: null, map: null, marker: null, layers: [], frames: [], idx: 0, builtAt: 0, visible: false, playing: false, timer: null, building: false };
+  const START_ZOOM = 12.5;         // ~5-7 km Ausschnitt am Handy
 
   const inArea = (p) => p && p.lat > AREA.latMin && p.lat < AREA.latMax && p.lon > AREA.lonMin && p.lon < AREA.lonMax;
 
@@ -180,14 +181,17 @@
     }
   }
 
-  // Ruhiges Kartenbild (CARTO Positron / Dark Matter, auf OpenStreetMap-Daten): hell tagsüber, dunkel nachts
+  // Ruhiges, helles bzw. nachts dunkles Kartenbild: Esri "Gray Canvas" (ohne Key nutzbar, Stand 10/2026).
+  // Grundkarte ohne Beschriftung unten, Ortsnamen/Straßen als dünne Schicht ÜBER dem Radar, damit man sich orientieren kann.
+  const ESRI = 'https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_';
+  const ESRI_ATTR = 'Karte: © <a href="https://www.esri.com/" target="_blank" rel="noopener">Esri</a>, © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> · Radar: Deutscher Wetterdienst';
   function setBase(map) {
+    const shade = state.night ? 'Dark_Gray' : 'Light_Gray';
     if (state.base) map.removeLayer(state.base);
-    state.base = L.tileLayer(`https://{s}.basemaps.cartocdn.com/${state.night ? 'dark_all' : 'light_all'}/{z}/{x}/{y}{r}.png`, {
-      subdomains: 'abcd', maxZoom: 19,
-      attribution: '© <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> · © <a href="https://carto.com/attributions" target="_blank" rel="noopener">CARTO</a> · Radar: Deutscher Wetterdienst',
-    }).addTo(map);
+    if (state.labels) map.removeLayer(state.labels);
+    state.base = L.tileLayer(`${ESRI}${shade}_Base/MapServer/tile/{z}/{y}/{x}`, { maxZoom: 16, maxNativeZoom: 16, attribution: ESRI_ATTR }).addTo(map);
     state.base.setZIndex(1);
+    state.labels = L.tileLayer(`${ESRI}${shade}_Reference/MapServer/tile/{z}/{y}/{x}`, { maxZoom: 16, maxNativeZoom: 16, pane: 'labels', attribution: '' }).addTo(map);
   }
 
   function build() {
@@ -195,7 +199,7 @@
     const el = $('radarMap');
     const touch = L.Browser.touch && L.Browser.mobile;
     const map = L.map(el, {
-      center: [state.place.lat, state.place.lon], zoom: 8, minZoom: 5, maxZoom: 13,
+      center: [state.place.lat, state.place.lon], zoom: START_ZOOM, minZoom: 7, maxZoom: 15,
       dragging: !touch,            // am Handy scrollt ein Finger die Seite, zwei Finger bewegen/zoomen die Karte
       scrollWheelZoom: false, tap: false, zoomSnap: 0.5, worldCopyJump: false,
       attributionControl: true,
@@ -204,6 +208,9 @@
     map.createPane('radar');
     map.getPane('radar').style.zIndex = 250;
     map.getPane('radar').style.pointerEvents = 'none';
+    map.createPane('labels');      // Ortsnamen über dem Radar
+    map.getPane('labels').style.zIndex = 350;
+    map.getPane('labels').style.pointerEvents = 'none';
     setBase(map);
     state.marker = L.circleMarker([state.place.lat, state.place.lon], {
       radius: 6, color: '#fff', weight: 2.5, fillColor: '#2a7fe3', fillOpacity: 1, interactive: false,
@@ -232,7 +239,7 @@
     card.hidden = false;
     if (typeof night === 'boolean' && night !== state.night) { state.night = night; if (state.map) setBase(state.map); }
     if (state.map) {
-      if (moved) { state.map.setView([place.lat, place.lon], Math.max(state.map.getZoom(), 8), { animate: false }); state.marker.setLatLng([place.lat, place.lon]); }
+      if (moved) { state.map.setView([place.lat, place.lon], START_ZOOM, { animate: false }); state.marker.setLatLng([place.lat, place.lon]); }
       if (state.visible && Date.now() - state.builtAt > REBUILD_MS) loadFrames();
     } else if (state.visible) {
       build();
