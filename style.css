@@ -190,7 +190,7 @@ main:not(.empty) > .loading { display: none; }
 .rlegend summary::-webkit-details-marker { display: none; }
 .rlegend summary::after { content: ''; width: 7px; height: 7px; margin-right: 2px; border-right: 1.6px solid currentColor; border-bottom: 1.6px solid currentColor; transform: rotate(45deg) translateY(-2px); transition: transform .2s; }
 .rlegend[open] summary::after { transform: rotate(-135deg) translateY(-2px); }
-.rlegend .rlbox { margin-top: 8px; padding: 10px 12px; max-height: 300px; overflow: auto; border: 1px solid var(--line); border-radius: 12px; background: rgba(10, 25, 50, .28); }
+.rlegend .rlbox { margin-top: 8px; padding: 8px 10px; max-height: 300px; overflow: auto; border-radius: 12px; background: rgba(255, 255, 255, .1); }
 .rlegend img { display: block; max-width: none; height: auto; margin: 0 auto; }
 .rlegend[hidden] { display: none; }
 
@@ -284,17 +284,20 @@ main:not(.empty) > .loading { display: none; }
   border-radius: 12px;
 }
 .rb {
-  display: grid; place-items: center;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px;
   min-width: 0; border-radius: 6px;
   font-size: .62rem; font-weight: 600; line-height: 1;
   font-variant-numeric: tabular-nums; overflow: hidden;
 }
 .rb.dry   { background: rgba(255, 255, 255, .07); }
-/* Niesel / ein paar Tropfen: kaum Regen – sehr helles, ruhiges Blau (heller und blasser als "leicht") */
-.rb.drops { background: rgba(214, 236, 255, .42); }
-.rb.light { background: #a5d8ff; color: #0a2a52; }
+/* Tropfen = Menge: nur Hellblau = ein paar Tropfen, 1 Tropfen wenig, 2 mehr, 3 viel */
+.rb.drops { background: #d4ebff; }
+.rb.light { background: #8ccaff; color: #0a2a52; }
 .rb.mid   { background: #4a9dff; color: #fff; }
 .rb.heavy { background: #1f4fd8; color: #fff; }
+.rb .dr { display: flex; flex-direction: column; align-items: center; gap: 2px; }
+.rb .dr svg { width: 9px; height: 9px; fill: currentColor; stroke: none; }
+.rb .mm { font-size: .58rem; opacity: .9; }
 .rb.storm { background: #a855f7; color: #fff; }
 
 /* Komplett trocken: helle, ruhige Leiste statt dunklem Kasten */
@@ -316,11 +319,15 @@ main:not(.empty) > .loading { display: none; }
 
 .rainsummary { margin-top: 8px; font-size: 1rem; font-weight: 550; }
 
-.legend { display: flex; flex-wrap: wrap; gap: 4px 12px; margin-top: 8px; font-size: .7rem; color: var(--fg3); }
-.legend i { display: inline-block; width: 9px; height: 9px; margin-right: 4px; border-radius: 3px; vertical-align: -1px; }
-.legend .l0 { background: rgba(214, 236, 255, .5); }
-.legend .l1 { background: #a5d8ff; } .legend .l2 { background: #4a9dff; }
-.legend .l3 { background: #1f4fd8; } .legend .l4 { background: #a855f7; }
+.legend { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; margin-top: 10px; font-size: .72rem; color: var(--fg2, var(--fg3)); }
+.legend .lk { display: inline-flex; align-items: center; gap: 6px; }
+.legend i { display: inline-flex; align-items: center; justify-content: center; gap: 1px; min-width: 30px; height: 18px; padding: 0 5px; border-radius: 6px; box-sizing: border-box; }
+.legend i svg { width: 7px; height: 7px; fill: currentColor; stroke: none; }
+.legend .l0 { background: #d4ebff; }
+.legend .l1 { background: #8ccaff; color: #0a2a52; } .legend .l2 { background: #4a9dff; color: #fff; }
+.legend .l3 { background: #1f4fd8; color: #fff; } .legend .l4 { background: #a855f7; }
+.legend .lk + .lk { margin-left: 4px; }
+.legend .lnote { flex-basis: 100%; font-size: .68rem; color: var(--fg3); }
 
 /* ---------- Tage ---------- */
 .day { border-top: 1px solid rgba(255, 255, 255, .1); }

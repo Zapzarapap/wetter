@@ -548,6 +548,8 @@
     updateHBar();
   }
 
+  const dropsSvg = (k) => '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z"/></svg>'.repeat(k);
+
   function renderRain(d) {
     const blocks = rainBlocks(d);
     const nr = blocks.filter((b) => b.src === 'radar').length;
@@ -560,7 +562,9 @@
     const cells = blocks.map((b) => {
       const txt = b.cls === 'dry' || b.cls === 'drops' ? '' : b.mm >= 0.05 ? nf1.format(b.mm) : '';
       const tip = `${hhmm(b.time)} Uhr · ${b.cls === 'dry' ? 'trocken' : b.cls === 'drops' ? 'vielleicht ein paar Tropfen' : nf1.format(b.mm) + ' mm'}`;
-      return `<div class="rb ${b.cls}" title="${tip}">${txt}</div>`;
+      const nd = b.cls === 'light' ? 1 : b.cls === 'mid' ? 2 : b.cls === 'heavy' ? 3 : 0;
+      const dr = nd ? `<span class="dr">${dropsSvg(nd)}</span>` : '';
+      return `<div class="rb ${b.cls}" title="${tip}">${dr}${txt ? `<span class="mm">${txt}</span>` : ''}</div>`;
     }).join('');
     const endMs = tMs(blocks[n - 1].time) + 900000;
     const idxs = [0, 2, 4, 6, 8].filter((i) => i <= n);
@@ -571,10 +575,11 @@
     const calm = blocks.every((b) => b.cls === 'dry' || b.cls === 'drops'); // kein richtiger Regen in Sicht
     const hasDrops = blocks.some((b) => b.cls === 'drops');
     const msg = hasDrops ? `${ui('drop')}Höchstens ein paar Tropfen` : `${ui('check')}Kein Regen`;
-    const dropsKey = '<span><i class="l0"></i>Niesel / ein paar Tropfen</span>';
+    const k = (cls, n, label) => `<span class="lk"><i class="${cls}">${n ? dropsSvg(n) : ''}</i>${label}</span>`;
+    const dropsKey = k('l0', 0, 'ein paar Tropfen');
     const legend = calm
       ? (hasDrops ? `<div class="legend">${dropsKey}</div>` : '')
-      : `<div class="legend">${hasDrops ? dropsKey : ''}<span><i class="l1"></i>leicht</span><span><i class="l2"></i>mäßig</span><span><i class="l3"></i>stark</span><span><i class="l4"></i>Gewitter</span><span>Zahlen in mm (1 mm = 1 Liter pro m²)</span></div>`;
+      : `<div class="legend">${hasDrops ? dropsKey : ''}${k('l1', 1, 'wenig')}${k('l2', 2, 'mehr')}${k('l3', 3, 'viel')}${k('l4', 0, 'Gewitter')}<span class="lnote">Zahlen in mm (1 mm = 1 Liter pro m²)</span></div>`;
     el.rain.innerHTML =
       `<div class="raintrack${calm ? ' alldry' : ''}" style="--n:${n}">${cells}${calm ? `<span class="rb-msg${hasDrops ? ' pill' : ''}"><b>${msg}</b></span>` : ''}</div>
        <div class="rainlabels">${labels}</div>
