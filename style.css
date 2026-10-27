@@ -170,8 +170,10 @@ main:not(.empty) > .loading { display: none; }
 .now-main { min-width: 0; }
 .temp { font-size: clamp(3.4rem, 17vw, 4.6rem); font-weight: 600; line-height: 1; letter-spacing: -.04em; }
 .desc { margin-top: 4px; font-size: 1.05rem; color: var(--fg); overflow-wrap: anywhere; }
-.now-sub { display: flex; flex-wrap: wrap; gap: 2px 12px; margin-top: 6px; font-size: .88rem; color: var(--fg2); font-variant-numeric: tabular-nums; }
-.now-sub span { white-space: nowrap; }
+.temp-row { display: flex; align-items: flex-end; gap: 12px; flex-wrap: wrap; }
+.feels { display: grid; gap: 1px; padding-bottom: .5rem; line-height: 1.1; color: var(--fg2); font-variant-numeric: tabular-nums; }
+.feels span { font-size: .74rem; }
+.feels b { font-size: 1.35rem; font-weight: 600; color: var(--fg); }
 .now-icon { width: clamp(64px, 22vw, 92px); height: clamp(64px, 22vw, 92px); flex: none; }
 
 .stats {
@@ -188,25 +190,33 @@ main:not(.empty) > .loading { display: none; }
 .stat .lbl .ic { width: 13px; height: 13px; }
 .stat .val { margin-top: 2px; font-size: 1rem; font-weight: 550; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
 .stat .val small { font-size: .72rem; font-weight: 400; color: var(--fg2); }
+.stat .val .rw { display: block; white-space: nowrap; }
+.stat .val > small:only-child, .stat .val .rw + small { display: block; }
 
 /* ---------- Stündlich ---------- */
 .hourly {
   display: flex; gap: 4px;
-  margin: 0 -14px; padding: 2px 14px 8px;
+  margin: 0 -14px; padding: 2px 14px 6px;
   overflow-x: auto; overscroll-behavior-x: contain;
   -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
 }
-/* Runde Scrollleiste: Chrome/Edge/Safari über ::-webkit-scrollbar, Firefox über scrollbar-color.
-   Beides getrennt, weil Chrome die ::-webkit-Regeln ignoriert, sobald scrollbar-color gesetzt ist. */
-@supports selector(::-webkit-scrollbar) {
-  .hourly::-webkit-scrollbar { height: 8px; }
-  .hourly::-webkit-scrollbar-track { margin: 0 14px; background: rgba(255, 255, 255, .12); border-radius: 999px; }
-  .hourly::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, .45); border-radius: 999px; }
-  .hourly::-webkit-scrollbar-thumb:hover { background: rgba(255, 255, 255, .65); }
+.hourly::-webkit-scrollbar { display: none; }
+/* Eigene runde Scrollleiste (Position im Zeitverlauf, zieh- und antippbar) */
+.hbar {
+  position: relative; height: 8px; margin-top: 6px;
+  background: rgba(255, 255, 255, .14); border-radius: 999px;
+  touch-action: none; cursor: pointer;
 }
-@supports not selector(::-webkit-scrollbar) {
-  .hourly { scrollbar-width: thin; scrollbar-color: rgba(255, 255, 255, .45) transparent; }
+.hbar::before { content: ""; position: absolute; inset: -10px 0; }
+.hbar.off { visibility: hidden; }
+.hthumb {
+  position: absolute; top: 0; bottom: 0; left: 0; width: 40%;
+  background: rgba(255, 255, 255, .5); border-radius: 999px;
+  cursor: grab; will-change: transform;
 }
+.hbar:hover .hthumb, .hbar.drag .hthumb { background: rgba(255, 255, 255, .72); }
+.hbar.drag .hthumb { cursor: grabbing; }
 
 .h {
   flex: 0 0 3.7rem; min-width: 0;
@@ -246,12 +256,12 @@ main:not(.empty) > .loading { display: none; }
 .rb.storm { background: #a855f7; color: #fff; }
 
 /* Komplett trocken: helle, ruhige Leiste statt dunklem Kasten */
-.raintrack.alldry { background: linear-gradient(90deg, rgba(236, 248, 255, .92), rgba(188, 226, 255, .86)); }
+.raintrack.alldry { background: linear-gradient(90deg, rgba(255, 255, 255, .26), rgba(255, 255, 255, .16)); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .22); }
 .raintrack.alldry .rb.dry { background: transparent; }
 .rb-msg {
   position: absolute; inset: 0;
   display: flex; align-items: center; justify-content: center; gap: 6px;
-  font-size: .88rem; font-weight: 600; color: #0f3a6b; pointer-events: none;
+  font-size: .88rem; font-weight: 600; color: #fff; text-shadow: 0 1px 2px rgba(0, 0, 0, .22); pointer-events: none;
 }
 .rb-msg .ic { width: 16px; height: 16px; stroke-width: 2.8; }
 
@@ -301,7 +311,7 @@ main:not(.empty) > .loading { display: none; }
 .d-note { padding: 8px 0 2px; font-size: .72rem; color: var(--fg3); text-align: center; border-top: 1px dashed rgba(255, 255, 255, .22); }
 
 /* Aufgeklappter Tag: Nachts / Morgens / Mittags / Abends */
-.dsegs { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; padding: 2px 0 12px; }
+.dsegs { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; padding: 2px 0 12px; }
 .seg {
   position: relative; min-width: 0; overflow: hidden;
   display: grid; justify-items: center; align-content: start; gap: 3px;

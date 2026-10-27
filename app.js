@@ -28,7 +28,7 @@
     q: $('#q'), locate: $('#locate'), results: $('#results'), main: $('#main'),
     placeName: $('#placeName'), placeSub: $('#placeSub'), status: $('#status'), note: $('#note'),
     loading: $('#loading'), now: $('#nowCard'), hourly: $('#hourly'), rain: $('#rain'),
-    daily: $('#daily'), toggleDays: $('#toggleDays'),
+    daily: $('#daily'), toggleDays: $('#toggleDays'), hbar: $('#hbar'), hthumb: $('#hthumb'),
   };
 
   const nf0 = new Intl.NumberFormat('de-DE', { maximumFractionDigits: 0 });
@@ -381,27 +381,52 @@
     }
   }
 
+  // Regen für den Rest des heutigen Tages als Uhrzeiten (nur Stunden mit >= 0,1 mm)
+  function rainToday(d) {
+    const h = d.hourly;
+    if (!h || !h.time) return null;
+    const today = todayStr(d);
+    const nowH = new Date(localNowMs(d)).getUTCHours();
+    const wet = new Array(24).fill(false);
+    h.time.forEach((t, i) => {
+      if (t.slice(0, 10) === today && num(h.precipitation?.[i]) && h.precipitation[i] >= 0.1) wet[Number(t.slice(11, 13))] = true;
+    });
+    const runs = [];
+    for (let k = nowH; k < 24; k++) {
+      if (!wet[k]) continue;
+      let e = k;
+      while (e < 24 && wet[e]) e++;
+      runs.push({ s: k, e, now: k === nowH });
+      k = e;
+    }
+    return runs;
+  }
+
+  function rainTodayHtml(d) {
+    const runs = rainToday(d);
+    if (!runs) return '–';
+    if (!runs.length) return 'Trocken <small>bis 24 Uhr</small>';
+    const line = (r) => `<span class="rw">${r.now ? `bis ${r.e}` : `${r.s}–${r.e}`} Uhr</span>`;
+    return runs.slice(0, 2).map(line).join('') + (runs.length > 2 ? '<small>und später</small>' : '');
+  }
+
   function renderNow(d) {
     const c = d.current || {};
     const day = isDayNow(d);
     const hr = hourlyWindow(d, 1)[0];
     const i = dailyStart(d);
     const D = d.daily || {};
-    const today = i >= 0
-      ? { rise: D.sunrise?.[i], set: D.sunset?.[i], hi: D.temperature_2m_max?.[i], lo: D.temperature_2m_min?.[i],
-          pp: D.precipitation_probability_max?.[i], mm: D.precipitation_sum?.[i] }
-      : {};
+    const today = i >= 0 ? { rise: D.sunrise?.[i], set: D.sunset?.[i] } : {};
     const uv = hr ? hr.uv : undefined;
     const stat = (icon, label, val) => `<div class="stat"><div class="lbl">${ui(icon)}${label}</div><div class="val">${val}</div></div>`;
-    const rain = num(today.pp)
-      ? `${int(today.pp)} <small>%${num(today.mm) && today.mm >= 0.1 ? ' · ' + nf1.format(today.mm) + ' mm' : ''}</small>`
-      : '–';
     el.now.innerHTML =
       `<div class="now-top">
          <div class="now-main">
-           <div class="temp">${deg(c.temperature_2m)}</div>
+           <div class="temp-row">
+             <div class="temp">${deg(c.temperature_2m)}</div>
+             <div class="feels"><span>Gefühlt</span><b>${deg(c.apparent_temperature)}</b></div>
+           </div>
            <div class="desc">${esc(describe(c.weather_code, day))}</div>
-           <div class="now-sub"><span>Gefühlt ${deg(c.apparent_temperature)}</span><span>Hoch ${deg(today.hi)}</span><span>Tief ${deg(today.lo)}</span></div>
          </div>
          <div class="now-icon">${iconSvg(c.weather_code, day)}</div>
        </div>
@@ -409,7 +434,7 @@
          ${stat('wind', 'Wind Ø–Böen', `${windStr(c.wind_speed_10m, c.wind_gusts_10m)} <small>km/h</small>`)}
          ${stat('humidity', 'Luftfeuchte', `${int(c.relative_humidity_2m)} <small>%</small>`)}
          ${stat('sun', 'UV-Index', num(uv) ? `${nf0.format(Math.round(uv))} <small>${uvLabel(uv)}</small>` : '–')}
-         ${stat('drop', 'Regen heute', rain)}
+         ${stat('drop', 'Regen heute', rainTodayHtml(d))}
          ${stat('sunrise', 'Sonnenaufgang', today.rise ? hhmm(today.rise) : '–')}
          ${stat('sunset', 'Sonnenuntergang', today.set ? hhmm(today.set) : '–')}
        </div>`;
@@ -434,6 +459,7 @@
       </div>`;
     }).join('');
     el.hourly.scrollLeft = keep;
+    updateHBar();
   }
 
   function renderRain(d) {
@@ -462,7 +488,9 @@
        ${allDry ? '' : '<div class="legend"><span><i class="l1"></i>leicht</span><span><i class="l2"></i>mäßig</span><span><i class="l3"></i>stark</span><span><i class="l4"></i>Gewitter</span><span>Zahlen in mm (1 mm = 1 Liter pro m²)</span></div>'}`;
   }
 
-  const SEGS = [['Nachts', 0, 6], ['Morgens', 6, 12], ['Mittags', 12, 18], ['Abends', 18, 24]];
+  // Tageszeiten pro Tag: [Name, von, bis]. Stunden >= 24 gehören zum Folgetag (die Nacht 23–5 reicht über Mitternacht).
+  const SEGS = [['Morgens', 5, 9], ['Vormittags', 9, 12], ['Mittags', 12, 15], ['Nachmittags', 15, 18], ['Abends', 18, 23], ['Nachts', 23, 29]];
+  const nextDate = (date) => new Date(Date.parse(date + 'T00:00:00Z') + 86400000).toISOString().slice(0, 10);
   const avg = (a) => (a.length ? a.reduce((x, y) => x + y, 0) / a.length : undefined);
   // Schwere eines Niederschlags-Wettercodes (nur für Codes ab 51)
   const sev = (c) => (c >= 95 ? 9 : c === 65 || c === 67 || c === 82 ? 8
@@ -488,11 +516,17 @@
     return 'heavy';
   }
 
-  function daySegments(d, idxs) {
+  function daySegments(d, byDay, date) {
     const h = d.hourly;
     const nowMs = localNowMs(d);
+    const next = nextDate(date);
     return SEGS.map(([name, from, to]) => {
-      const pick = idxs.filter((i) => { const hr = Number(h.time[i].slice(11, 13)); return hr >= from && hr < to; });
+      const pick = [];
+      for (let hh = from; hh < to; hh++) {
+        const arr = byDay.get(hh < 24 ? date : next);
+        const idx = arr && arr.find((i) => Number(h.time[i].slice(11, 13)) === hh % 24);
+        if (idx !== undefined) pick.push(idx);
+      }
       if (!pick.length) return { name, from, to, empty: true };
       const vals = (arr) => pick.map((i) => arr?.[i]).filter(num);
       const mm = vals(h.precipitation).reduce((a, b) => a + b, 0);
@@ -513,7 +547,7 @@
   function segHtml(s) {
     if (s.empty) return '<div class="seg"></div>';
     return `<div class="seg${s.past ? ' past' : ''}"><i class="sbar ${s.cls}"></i>
-      <span class="s-name">${s.name}</span><span class="s-time">${s.from}–${s.to} Uhr</span>
+      <span class="s-name">${s.name}</span><span class="s-time">${s.from}–${s.to % 24} Uhr</span>
       <span class="s-ico">${iconSvg(s.code, s.isDay)}</span>
       <span class="s-temp">${deg(s.temp)}</span>
       <span class="s-rain">${ui('drop')}${num(s.pp) ? Math.round(s.pp) + '%' : '–'}</span>
@@ -561,7 +595,7 @@
           <span class="d-gust">${ui('wind')}${windStr(wAvg, D.wind_gusts_10m_max?.[i])}</span>
           <span class="d-chev">${ui('chevron')}</span>
         </button>
-        ${open ? `<div class="dsegs">${daySegments(d, idxs).map(segHtml).join('')}</div>` : ''}
+        ${open ? `<div class="dsegs">${daySegments(d, byDay, date).map(segHtml).join('')}</div>` : ''}
       </div>`;
     }
     el.daily.innerHTML = html;
@@ -720,6 +754,47 @@
     if (e.key === 'Enter') { const li = e.target.closest('li[data-i]'); if (li) pick(Number(li.dataset.i)); }
   });
   document.addEventListener('click', (e) => { if (!e.target.closest('.search')) hideResults(); });
+
+/* ------------------------------------------------------------------ */
+  /* Eigene Scrollleiste für "Stündlich" (native Leisten lassen sich     */
+  /* je nach Browser nicht abrunden)                                     */
+  /* ------------------------------------------------------------------ */
+  function updateHBar() {
+    const w = el.hourly.clientWidth, sw = el.hourly.scrollWidth;
+    if (sw <= w + 1) { el.hbar.classList.add('off'); return; }
+    el.hbar.classList.remove('off');
+    const bw = el.hbar.clientWidth;
+    const tw = Math.max(40, (bw * w) / sw);
+    const max = sw - w;
+    const x = (el.hourly.scrollLeft / max) * (bw - tw);
+    el.hthumb.style.width = tw + 'px';
+    el.hthumb.style.transform = `translateX(${Math.max(0, x)}px)`;
+  }
+
+  let hdrag = null;
+  const hMax = () => el.hourly.scrollWidth - el.hourly.clientWidth;
+  el.hourly.addEventListener('scroll', updateHBar, { passive: true });
+  window.addEventListener('resize', updateHBar);
+  el.hthumb.addEventListener('pointerdown', (e) => {
+    hdrag = { x: e.clientX, left: el.hourly.scrollLeft };
+    el.hthumb.setPointerCapture(e.pointerId);
+    el.hbar.classList.add('drag');
+    e.preventDefault();
+  });
+  el.hthumb.addEventListener('pointermove', (e) => {
+    if (!hdrag) return;
+    const room = Math.max(1, el.hbar.clientWidth - el.hthumb.offsetWidth);
+    el.hourly.scrollLeft = hdrag.left + ((e.clientX - hdrag.x) * hMax()) / room;
+  });
+  const hEnd = () => { hdrag = null; el.hbar.classList.remove('drag'); };
+  el.hthumb.addEventListener('pointerup', hEnd);
+  el.hthumb.addEventListener('pointercancel', hEnd);
+  el.hbar.addEventListener('pointerdown', (e) => {
+    if (e.target === el.hthumb) return;
+    const r = el.hbar.getBoundingClientRect(), tw = el.hthumb.offsetWidth;
+    const frac = (e.clientX - r.left - tw / 2) / Math.max(1, r.width - tw);
+    el.hourly.scrollLeft = Math.min(1, Math.max(0, frac)) * hMax();
+  });
 
   el.locate.addEventListener('click', () => locate(true));
   el.status.addEventListener('click', () => { if (state.status !== 'loading') refresh(); });
