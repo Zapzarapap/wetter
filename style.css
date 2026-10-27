@@ -166,32 +166,30 @@ main:not(.empty) > .loading { display: none; }
 .wi { width: 100%; height: 100%; display: block; }
 
 /* ---------- Aktuell ---------- */
-.now-top { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+/* Linke Spalte: Temperatur, Beschreibung, Gefühlt (eine Linie, linksbündig); rechts das Icon. Darunter ein 2-Spalten-Raster mit Haarlinien. */
+.now-top { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 2px 2px 0; }
 .now-main { min-width: 0; }
-.temp { font-size: clamp(3.4rem, 17vw, 4.6rem); font-weight: 600; line-height: 1; letter-spacing: -.04em; }
-.desc { margin-top: 4px; font-size: 1.05rem; color: var(--fg); overflow-wrap: anywhere; }
-.temp-row { display: flex; align-items: flex-end; gap: 12px; flex-wrap: wrap; }
-.feels { display: grid; gap: 1px; padding-bottom: .5rem; line-height: 1.1; color: var(--fg2); font-variant-numeric: tabular-nums; }
-.feels span { font-size: .74rem; }
-.feels b { font-size: 1.35rem; font-weight: 600; color: var(--fg); }
-.now-icon { width: clamp(64px, 22vw, 92px); height: clamp(64px, 22vw, 92px); flex: none; }
+.temp { font-size: clamp(3.6rem, 18vw, 4.9rem); font-weight: 600; line-height: .95; letter-spacing: -.045em; margin-left: -.04em; }
+.desc { margin-top: 8px; font-size: 1.1rem; font-weight: 500; color: var(--fg); overflow-wrap: anywhere; }
+.feels { margin-top: 2px; font-size: .88rem; color: var(--fg2); font-variant-numeric: tabular-nums; }
+.feels b { font-weight: 600; color: var(--fg); }
+.now-icon { width: clamp(76px, 26vw, 108px); height: clamp(76px, 26vw, 108px); flex: none; }
 
 .stats {
-  display: grid; grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 10px 8px;
-  margin-top: 14px; padding-top: 12px;
-  border-top: 1px solid var(--line);
+  display: grid; grid-template-columns: repeat(2, minmax(0, 1fr));
+  column-gap: 20px; row-gap: 0;
+  margin-top: 16px;
 }
-.stat { min-width: 0; }
+.stat { min-width: 0; padding: 11px 2px 10px; border-top: 1px solid var(--line); }
 .stat .lbl {
-  display: flex; align-items: center; gap: 4px;
-  font-size: .7rem; color: var(--fg2);
+  display: flex; align-items: center; gap: 5px;
+  font-size: .72rem; letter-spacing: .02em; color: var(--fg2);
 }
-.stat .lbl .ic { width: 13px; height: 13px; }
-.stat .val { margin-top: 2px; font-size: 1rem; font-weight: 550; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
-.stat .val small { font-size: .72rem; font-weight: 400; color: var(--fg2); }
+.stat .lbl .ic { width: 13px; height: 13px; flex: none; }
+.stat .val { margin-top: 3px; font-size: 1.12rem; font-weight: 600; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.stat .val small { font-size: .74rem; font-weight: 400; color: var(--fg2); }
 .stat .val .rw { display: block; white-space: nowrap; }
-.stat .val > small:only-child, .stat .val .rw + small { display: block; }
+.stat .val .rw + small { display: block; }
 
 /* ---------- Stündlich ---------- */
 .hourly {
@@ -356,7 +354,7 @@ main:not(.empty) > .loading { display: none; }
   .app { padding-left: max(10px, env(safe-area-inset-left)); padding-right: max(10px, env(safe-area-inset-right)); }
   .card { padding: 12px; }
   .hourly { margin: 0 -12px; padding-left: 12px; padding-right: 12px; }
-  .stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .stats { column-gap: 14px; }
   .drow { grid-template-columns: 2.6rem 2.4rem minmax(0, 1fr) 2.8rem 3.2rem .9rem; column-gap: 4px; }
   .d-gust { font-size: .72rem; }
   .dsegs { gap: 4px; }

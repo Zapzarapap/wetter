@@ -440,11 +440,9 @@
     el.now.innerHTML =
       `<div class="now-top">
          <div class="now-main">
-           <div class="temp-row">
-             <div class="temp">${deg(c.temperature_2m)}</div>
-             <div class="feels"><span>Gefühlt</span><b>${deg(c.apparent_temperature)}</b></div>
-           </div>
+           <div class="temp">${deg(c.temperature_2m)}</div>
            <div class="desc">${esc(describe(c.weather_code, day))}</div>
+           <div class="feels">Gefühlt <b>${deg(c.apparent_temperature)}</b></div>
          </div>
          <div class="now-icon">${iconSvg(c.weather_code, day)}</div>
        </div>
