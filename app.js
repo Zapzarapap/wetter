@@ -36,6 +36,8 @@
   const num = (v) => typeof v === 'number' && isFinite(v);
   const deg = (v) => (num(v) ? nf0.format(Math.round(v) || 0) + '°' : '–');
   const int = (v) => (num(v) ? nf0.format(Math.round(v)) : '–');
+  // Wind als "Durchschnitt–Böen", z. B. 24–35
+  const windStr = (avg, gust) => (num(gust) ? (num(avg) ? `${int(avg)}–${int(gust)}` : int(gust)) : '–');
   const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
   const loadJSON = (k) => { try { return JSON.parse(localStorage.getItem(k)); } catch (e) { return null; } };
@@ -185,6 +187,8 @@
     sun: '<circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/>',
     sunrise: '<path d="M17 18a5 5 0 0 0-10 0M12 2v7M4.22 10.22l1.42 1.42M1 18h2M21 18h2M18.36 11.64l1.42-1.42M23 22H1M8 6l4-4 4 4"/>',
     sunset: '<path d="M17 18a5 5 0 0 0-10 0M12 9V2M4.22 10.22l1.42 1.42M1 18h2M21 18h2M18.36 11.64l1.42-1.42M23 22H1M16 5l-4 4-4-4"/>',
+    chevron: '<path d="M6 9l6 6 6-6"/>',
+    check: '<path d="M5 12.5l4.5 4.5L19 7.5"/>',
   };
   const ui = (n) => `<svg class="ic" viewBox="0 0 24 24" aria-hidden="true">${UI[n]}</svg>`;
 
@@ -200,6 +204,7 @@
     reqId: 0,
     inflight: null,
     days: 7,
+    open: new Set(), // aufgeklappte Tage (Datum)
     note: '',
   };
 
@@ -210,13 +215,12 @@
     const params = new URLSearchParams({
       latitude: place.lat.toFixed(4),
       longitude: place.lon.toFixed(4),
-      current: 'temperature_2m,apparent_temperature,relative_humidity_2m,weather_code,wind_gusts_10m,is_day',
-      hourly: 'temperature_2m,precipitation_probability,precipitation,weather_code,wind_gusts_10m,is_day,uv_index',
+      current: 'temperature_2m,apparent_temperature,relative_humidity_2m,weather_code,wind_speed_10m,wind_gusts_10m,is_day',
+      hourly: 'temperature_2m,precipitation_probability,precipitation,weather_code,wind_speed_10m,wind_gusts_10m,is_day,uv_index',
       minutely_15: full ? 'precipitation,weather_code' : 'precipitation',
-      daily: 'weather_code,temperature_2m_max,temperature_2m_min,precipitation_sum,precipitation_probability_max,wind_gusts_10m_max,sunrise,sunset,uv_index_max',
+      daily: 'weather_code,temperature_2m_max,temperature_2m_min,precipitation_sum,precipitation_probability_max,wind_speed_10m_max,wind_gusts_10m_max,sunrise,sunset,uv_index_max',
       timezone: 'auto',
       forecast_days: '14',
-      forecast_hours: String(HOURS + 1),
       forecast_minutely_15: String(RAIN_BLOCKS + 1),
       wind_speed_unit: 'kmh',
     });
@@ -270,7 +274,7 @@
     for (let k = i; k < h.time.length && out.length < n; k++) {
       out.push({
         time: h.time[k], temp: h.temperature_2m?.[k], pp: h.precipitation_probability?.[k], mm: h.precipitation?.[k],
-        code: h.weather_code?.[k], gust: h.wind_gusts_10m?.[k], isDay: h.is_day?.[k] ?? 1, uv: h.uv_index?.[k],
+        code: h.weather_code?.[k], wind: h.wind_speed_10m?.[k], gust: h.wind_gusts_10m?.[k], isDay: h.is_day?.[k] ?? 1, uv: h.uv_index?.[k],
       });
     }
     return out;
@@ -382,19 +386,30 @@
     const day = isDayNow(d);
     const hr = hourlyWindow(d, 1)[0];
     const i = dailyStart(d);
-    const today = i >= 0 ? { rise: d.daily.sunrise?.[i], set: d.daily.sunset?.[i] } : {};
+    const D = d.daily || {};
+    const today = i >= 0
+      ? { rise: D.sunrise?.[i], set: D.sunset?.[i], hi: D.temperature_2m_max?.[i], lo: D.temperature_2m_min?.[i],
+          pp: D.precipitation_probability_max?.[i], mm: D.precipitation_sum?.[i] }
+      : {};
     const uv = hr ? hr.uv : undefined;
     const stat = (icon, label, val) => `<div class="stat"><div class="lbl">${ui(icon)}${label}</div><div class="val">${val}</div></div>`;
+    const rain = num(today.pp)
+      ? `${int(today.pp)} <small>%${num(today.mm) && today.mm >= 0.1 ? ' · ' + nf1.format(today.mm) + ' mm' : ''}</small>`
+      : '–';
     el.now.innerHTML =
       `<div class="now-top">
-         <div class="now-main"><div class="temp">${deg(c.temperature_2m)}</div><div class="desc">${esc(describe(c.weather_code, day))}</div></div>
+         <div class="now-main">
+           <div class="temp">${deg(c.temperature_2m)}</div>
+           <div class="desc">${esc(describe(c.weather_code, day))}</div>
+           <div class="now-sub"><span>Gefühlt ${deg(c.apparent_temperature)}</span><span>Hoch ${deg(today.hi)}</span><span>Tief ${deg(today.lo)}</span></div>
+         </div>
          <div class="now-icon">${iconSvg(c.weather_code, day)}</div>
        </div>
        <div class="stats">
-         ${stat('thermo', 'Gefühlt', deg(c.apparent_temperature))}
-         ${stat('wind', 'Böen', `${int(c.wind_gusts_10m)} <small>km/h</small>`)}
+         ${stat('wind', 'Wind Ø–Böen', `${windStr(c.wind_speed_10m, c.wind_gusts_10m)} <small>km/h</small>`)}
          ${stat('humidity', 'Luftfeuchte', `${int(c.relative_humidity_2m)} <small>%</small>`)}
          ${stat('sun', 'UV-Index', num(uv) ? `${nf0.format(Math.round(uv))} <small>${uvLabel(uv)}</small>` : '–')}
+         ${stat('drop', 'Regen heute', rain)}
          ${stat('sunrise', 'Sonnenaufgang', today.rise ? hhmm(today.rise) : '–')}
          ${stat('sunset', 'Sonnenuntergang', today.set ? hhmm(today.set) : '–')}
        </div>`;
@@ -415,7 +430,7 @@
         <span class="h-temp">${deg(o.temp)}</span>
         <span class="h-rain">${ui('drop')}${num(o.pp) ? Math.round(o.pp) + '%' : '–'}</span>
         <span class="h-mm">${rain}</span>
-        <span class="h-gust">${ui('wind')}${int(o.gust)}</span>
+        <span class="h-gust">${ui('wind')}${windStr(o.wind, o.gust)}</span>
       </div>`;
     }).join('');
     el.hourly.scrollLeft = keep;
@@ -439,17 +454,84 @@
       const t = i === 0 ? 'Jetzt' : hhmmFromMs(i < n ? tMs(blocks[i].time) : endMs);
       return `<span style="left:${((i / n) * 100).toFixed(2)}%">${t}</span>`;
     }).join('');
+    const allDry = blocks.every((b) => b.cls === 'dry');
     el.rain.innerHTML =
-      `<div class="raintrack" style="--n:${n}">${cells}</div>
+      `<div class="raintrack${allDry ? ' alldry' : ''}" style="--n:${n}">${cells}${allDry ? `<span class="rb-msg">${ui('check')}Kein Regen</span>` : ''}</div>
        <div class="rainlabels">${labels}</div>
        <p class="rainsummary">${esc(rainSummary(blocks))}</p>
-       <div class="legend"><span><i class="l1"></i>leicht</span><span><i class="l2"></i>mäßig</span><span><i class="l3"></i>stark</span><span><i class="l4"></i>Gewitter</span><span>Zahlen in mm</span></div>`;
+       ${allDry ? '' : '<div class="legend"><span><i class="l1"></i>leicht</span><span><i class="l2"></i>mäßig</span><span><i class="l3"></i>stark</span><span><i class="l4"></i>Gewitter</span><span>Zahlen in mm (1 mm = 1 Liter pro m²)</span></div>'}`;
+  }
+
+  const SEGS = [['Nachts', 0, 6], ['Morgens', 6, 12], ['Mittags', 12, 18], ['Abends', 18, 24]];
+  const avg = (a) => (a.length ? a.reduce((x, y) => x + y, 0) / a.length : undefined);
+  // Schwere eines Niederschlags-Wettercodes (nur für Codes ab 51)
+  const sev = (c) => (c >= 95 ? 9 : c === 65 || c === 67 || c === 82 ? 8
+    : c === 63 || c === 66 || c === 81 || (c >= 71 && c <= 77) || c === 85 || c === 86 ? 7
+    : c === 61 || c === 80 ? 6 : 5);
+
+  // Ein Icon pro Tageszeit: schlimmstes Niederschlagswetter, aber nur wenn wirklich etwas fällt
+  function repCode(codes, sum) {
+    const wet = codes.filter((c) => c >= 51);
+    if (wet.length && (sum >= 0.1 || wet.some((c) => c >= 95))) return wet.reduce((a, b) => (sev(b) > sev(a) ? b : a));
+    const dry = codes.filter((c) => c < 51);
+    if (!dry.length) return 3;
+    const cnt = {};
+    dry.forEach((c) => { cnt[c] = (cnt[c] || 0) + 1; });
+    return Number(Object.keys(cnt).reduce((a, b) => (cnt[b] > cnt[a] ? b : a)));
+  }
+
+  function segRain(sum, code) {
+    if (code >= 95) return 'storm';
+    if (sum < 0.1) return 'dry';
+    if (sum < 1) return 'light';
+    if (sum < 4) return 'mid';
+    return 'heavy';
+  }
+
+  function daySegments(d, idxs) {
+    const h = d.hourly;
+    const nowMs = localNowMs(d);
+    return SEGS.map(([name, from, to]) => {
+      const pick = idxs.filter((i) => { const hr = Number(h.time[i].slice(11, 13)); return hr >= from && hr < to; });
+      if (!pick.length) return { name, from, to, empty: true };
+      const vals = (arr) => pick.map((i) => arr?.[i]).filter(num);
+      const mm = vals(h.precipitation).reduce((a, b) => a + b, 0);
+      const pp = vals(h.precipitation_probability);
+      const g = vals(h.wind_gusts_10m);
+      const code = repCode(vals(h.weather_code), mm);
+      const mid = pick[Math.floor(pick.length / 2)];
+      return {
+        name, from, to, mm, code,
+        temp: avg(vals(h.temperature_2m)), wind: avg(vals(h.wind_speed_10m)),
+        pp: pp.length ? Math.max(...pp) : undefined, gust: g.length ? Math.max(...g) : undefined,
+        isDay: h.is_day?.[mid] ?? 1, cls: segRain(mm, code),
+        past: tMs(h.time[pick[pick.length - 1]]) + 3600000 <= nowMs,
+      };
+    });
+  }
+
+  function segHtml(s) {
+    if (s.empty) return '<div class="seg"></div>';
+    return `<div class="seg${s.past ? ' past' : ''}"><i class="sbar ${s.cls}"></i>
+      <span class="s-name">${s.name}</span><span class="s-time">${s.from}–${s.to} Uhr</span>
+      <span class="s-ico">${iconSvg(s.code, s.isDay)}</span>
+      <span class="s-temp">${deg(s.temp)}</span>
+      <span class="s-rain">${ui('drop')}${num(s.pp) ? Math.round(s.pp) + '%' : '–'}</span>
+      <span class="s-mm">${s.mm >= 0.1 ? nf1.format(s.mm) + ' mm' : ''}</span>
+      <span class="s-wind">${ui('wind')}${windStr(s.wind, s.gust)}</span>
+    </div>`;
   }
 
   function renderDaily(d) {
     const D = d.daily;
     const start = dailyStart(d);
     if (!D || start < 0) { el.daily.innerHTML = ''; return; }
+    const byDay = new Map();
+    (d.hourly?.time || []).forEach((t, i) => {
+      const k = t.slice(0, 10);
+      if (!byDay.has(k)) byDay.set(k, []);
+      byDay.get(k).push(i);
+    });
     const total = D.time.length - start;
     const shown = Math.min(state.days, total);
     const mins = D.temperature_2m_min.slice(start).filter(num);
@@ -460,19 +542,26 @@
     for (let r = 0; r < shown; r++) {
       const i = start + r;
       const date = D.time[i];
+      const idxs = byDay.get(date) || [];
       const lo = D.temperature_2m_min[i], hi = D.temperature_2m_max[i];
       const left = num(lo) ? ((lo - gmin) / span) * 100 : 0;
       const width = num(lo) && num(hi) ? Math.max(((hi - lo) / span) * 100, 4) : 0;
       const pp = D.precipitation_probability_max?.[i];
       const sum = D.precipitation_sum?.[i];
+      const wAvg = idxs.length ? avg(idxs.map((k) => d.hourly.wind_speed_10m?.[k]).filter(num)) : D.wind_speed_10m_max?.[i];
       const trend = r >= 7;
+      const open = state.open.has(date) && idxs.length > 0;
       if (r === 7) html += '<div class="d-note">Ab hier eher Trend als genaue Vorhersage</div>';
-      html += `<div class="drow${trend ? ' trend' : ''}">
-        <div class="d-day"><b>${r === 0 ? 'Heute' : weekday(date)}</b><small>${date.slice(8, 10)}.${date.slice(5, 7)}.</small></div>
-        <div class="d-ico">${iconSvg(D.weather_code[i], 1)}</div>
-        <div class="d-temp"><span class="lo">${deg(lo)}</span><span class="bar"><i style="left:${left.toFixed(1)}%;width:${width.toFixed(1)}%"></i></span><span class="hi">${deg(hi)}</span></div>
-        <div class="d-rain"><span>${ui('drop')}${num(pp) ? Math.round(pp) + '%' : '–'}</span>${num(sum) && sum >= 0.1 ? `<small>${nf1.format(sum)} mm</small>` : ''}</div>
-        <div class="d-gust">${ui('wind')}${int(D.wind_gusts_10m_max?.[i])}</div>
+      html += `<div class="day${open ? ' open' : ''}">
+        <button class="drow${trend ? ' trend' : ''}" type="button" data-date="${date}" aria-expanded="${open}">
+          <span class="d-day"><b>${r === 0 ? 'Heute' : weekday(date)}</b><small>${date.slice(8, 10)}.${date.slice(5, 7)}.</small></span>
+          <span class="d-ico">${iconSvg(D.weather_code[i], 1)}</span>
+          <span class="d-temp"><span class="lo">${deg(lo)}</span><span class="bar"><i style="left:${left.toFixed(1)}%;width:${width.toFixed(1)}%"></i></span><span class="hi">${deg(hi)}</span></span>
+          <span class="d-rain"><span>${ui('drop')}${num(pp) ? Math.round(pp) + '%' : '–'}</span>${num(sum) && sum >= 0.1 ? `<small>${nf1.format(sum)} mm</small>` : ''}</span>
+          <span class="d-gust">${ui('wind')}${windStr(wAvg, D.wind_gusts_10m_max?.[i])}</span>
+          <span class="d-chev">${ui('chevron')}</span>
+        </button>
+        ${open ? `<div class="dsegs">${daySegments(d, idxs).map(segHtml).join('')}</div>` : ''}
       </div>`;
     }
     el.daily.innerHTML = html;
@@ -634,6 +723,15 @@
 
   el.locate.addEventListener('click', () => locate(true));
   el.status.addEventListener('click', () => { if (state.status !== 'loading') refresh(); });
+  el.daily.addEventListener('click', (e) => {
+    const b = e.target.closest('.drow');
+    if (!b || !state.data) return;
+    const k = b.dataset.date;
+    if (state.open.has(k)) state.open.delete(k); else state.open.add(k);
+    renderDaily(state.data);
+    const again = el.daily.querySelector(`.drow[data-date="${k}"]`);
+    if (again) again.focus({ preventScroll: true });
+  });
   el.toggleDays.addEventListener('click', () => {
     state.days = state.days > 7 ? 7 : 14;
     if (state.data) renderDaily(state.data);

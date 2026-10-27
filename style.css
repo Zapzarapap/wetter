@@ -168,8 +168,10 @@ main:not(.empty) > .loading { display: none; }
 /* ---------- Aktuell ---------- */
 .now-top { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .now-main { min-width: 0; }
-.temp { font-size: clamp(3.4rem, 17vw, 4.6rem); font-weight: 300; line-height: 1; letter-spacing: -.03em; }
+.temp { font-size: clamp(3.4rem, 17vw, 4.6rem); font-weight: 600; line-height: 1; letter-spacing: -.04em; }
 .desc { margin-top: 4px; font-size: 1.05rem; color: var(--fg); overflow-wrap: anywhere; }
+.now-sub { display: flex; flex-wrap: wrap; gap: 2px 12px; margin-top: 6px; font-size: .88rem; color: var(--fg2); font-variant-numeric: tabular-nums; }
+.now-sub span { white-space: nowrap; }
 .now-icon { width: clamp(64px, 22vw, 92px); height: clamp(64px, 22vw, 92px); flex: none; }
 
 .stats {
@@ -193,10 +195,18 @@ main:not(.empty) > .loading { display: none; }
   margin: 0 -14px; padding: 2px 14px 8px;
   overflow-x: auto; overscroll-behavior-x: contain;
   -webkit-overflow-scrolling: touch;
-  scrollbar-width: thin; scrollbar-color: rgba(255, 255, 255, .35) transparent;
 }
-.hourly::-webkit-scrollbar { height: 6px; }
-.hourly::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, .3); border-radius: 3px; }
+/* Runde Scrollleiste: Chrome/Edge/Safari über ::-webkit-scrollbar, Firefox über scrollbar-color.
+   Beides getrennt, weil Chrome die ::-webkit-Regeln ignoriert, sobald scrollbar-color gesetzt ist. */
+@supports selector(::-webkit-scrollbar) {
+  .hourly::-webkit-scrollbar { height: 8px; }
+  .hourly::-webkit-scrollbar-track { margin: 0 14px; background: rgba(255, 255, 255, .12); border-radius: 999px; }
+  .hourly::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, .45); border-radius: 999px; }
+  .hourly::-webkit-scrollbar-thumb:hover { background: rgba(255, 255, 255, .65); }
+}
+@supports not selector(::-webkit-scrollbar) {
+  .hourly { scrollbar-width: thin; scrollbar-color: rgba(255, 255, 255, .45) transparent; }
+}
 
 .h {
   flex: 0 0 3.7rem; min-width: 0;
@@ -217,6 +227,7 @@ main:not(.empty) > .loading { display: none; }
 
 /* ---------- Regenleiste ---------- */
 .raintrack {
+  position: relative;
   display: grid; grid-template-columns: repeat(var(--n, 8), minmax(0, 1fr)); gap: 3px;
   height: 40px; padding: 4px;
   background: var(--track);
@@ -228,11 +239,21 @@ main:not(.empty) > .loading { display: none; }
   font-size: .62rem; font-weight: 600; line-height: 1;
   font-variant-numeric: tabular-nums; overflow: hidden;
 }
-.rb.dry   { background: transparent; }
+.rb.dry   { background: rgba(255, 255, 255, .07); }
 .rb.light { background: #a5d8ff; color: #0a2a52; }
 .rb.mid   { background: #4a9dff; color: #fff; }
 .rb.heavy { background: #1f4fd8; color: #fff; }
 .rb.storm { background: #a855f7; color: #fff; }
+
+/* Komplett trocken: helle, ruhige Leiste statt dunklem Kasten */
+.raintrack.alldry { background: linear-gradient(90deg, rgba(236, 248, 255, .92), rgba(188, 226, 255, .86)); }
+.raintrack.alldry .rb.dry { background: transparent; }
+.rb-msg {
+  position: absolute; inset: 0;
+  display: flex; align-items: center; justify-content: center; gap: 6px;
+  font-size: .88rem; font-weight: 600; color: #0f3a6b; pointer-events: none;
+}
+.rb-msg .ic { width: 16px; height: 16px; stroke-width: 2.8; }
 
 .rainlabels { position: relative; height: 1.3em; margin: 6px 4px 0; font-size: .7rem; color: var(--fg2); font-variant-numeric: tabular-nums; }
 .rainlabels span { position: absolute; top: 0; transform: translateX(-50%); white-space: nowrap; }
@@ -247,31 +268,58 @@ main:not(.empty) > .loading { display: none; }
 .legend .l3 { background: #1f4fd8; } .legend .l4 { background: #a855f7; }
 
 /* ---------- Tage ---------- */
+.day { border-top: 1px solid rgba(255, 255, 255, .1); }
+.day:first-child { border-top: 0; }
 .drow {
   display: grid;
-  grid-template-columns: 3.1rem 2rem minmax(0, 1fr) 3rem 2.6rem;
+  grid-template-columns: 3.1rem 2rem minmax(0, 1fr) 3rem 3.6rem 1rem;
   align-items: center; column-gap: 6px;
-  padding: 7px 0;
-  border-top: 1px solid rgba(255, 255, 255, .1);
+  width: 100%; padding: 7px 0;
+  background: none; border: 0; border-radius: 8px;
+  text-align: left; color: inherit; cursor: pointer;
   font-variant-numeric: tabular-nums;
+  -webkit-tap-highlight-color: transparent;
 }
-.drow:first-child { border-top: 0; }
 .drow.trend { opacity: .82; }
 .d-day { min-width: 0; line-height: 1.15; }
 .d-day b { display: block; font-weight: 600; font-size: .95rem; }
 .d-day small { display: block; font-size: .68rem; color: var(--fg3); }
-.d-ico { width: 32px; height: 32px; }
+.d-ico { display: block; width: 32px; height: 32px; }
 .d-temp { display: flex; align-items: center; gap: 6px; min-width: 0; }
 .d-temp .lo { color: var(--fg2); min-width: 2.1ch; text-align: right; }
 .d-temp .hi { font-weight: 600; min-width: 2.1ch; }
 .d-temp .bar { position: relative; flex: 1; min-width: 0; height: 5px; background: rgba(255, 255, 255, .2); border-radius: 3px; }
 .d-temp .bar i { position: absolute; top: 0; bottom: 0; background: linear-gradient(90deg, #bfe3ff, #fff); border-radius: 3px; }
 .d-rain { display: grid; justify-items: start; font-size: .78rem; color: var(--fg2); line-height: 1.15; white-space: nowrap; }
-.d-rain span { display: flex; align-items: center; gap: 2px; }
+.d-rain > span { display: flex; align-items: center; gap: 2px; }
 .d-rain small { font-size: .66rem; color: #e3f2ff; }
 .d-gust { display: flex; align-items: center; gap: 2px; font-size: .78rem; color: var(--fg2); white-space: nowrap; }
 .d-rain .ic, .d-gust .ic { width: 11px; height: 11px; }
+.d-chev { display: grid; place-items: center; color: var(--fg3); }
+.d-chev .ic { width: 14px; height: 14px; transition: transform .2s ease; }
+.day.open .d-chev .ic { transform: rotate(180deg); }
 .d-note { padding: 8px 0 2px; font-size: .72rem; color: var(--fg3); text-align: center; border-top: 1px dashed rgba(255, 255, 255, .22); }
+
+/* Aufgeklappter Tag: Nachts / Morgens / Mittags / Abends */
+.dsegs { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; padding: 2px 0 12px; }
+.seg {
+  position: relative; min-width: 0; overflow: hidden;
+  display: grid; justify-items: center; align-content: start; gap: 3px;
+  padding: 12px 2px 8px;
+  background: rgba(255, 255, 255, .1); border-radius: 12px;
+  font-variant-numeric: tabular-nums;
+}
+.seg.past { opacity: .5; }
+.sbar { position: absolute; top: 0; left: 0; right: 0; height: 4px; }
+.sbar.light { background: #a5d8ff; } .sbar.mid { background: #4a9dff; }
+.sbar.heavy { background: #1f4fd8; } .sbar.storm { background: #a855f7; }
+.s-name { font-size: .78rem; font-weight: 600; }
+.s-time { font-size: .62rem; color: var(--fg3); white-space: nowrap; }
+.s-ico { display: block; width: 30px; height: 30px; margin-top: 2px; }
+.s-temp { font-size: 1rem; font-weight: 600; }
+.s-rain, .s-wind { display: flex; align-items: center; gap: 2px; font-size: .74rem; color: var(--fg2); white-space: nowrap; }
+.s-rain .ic, .s-wind .ic { width: 11px; height: 11px; }
+.s-mm { height: 1em; font-size: .66rem; line-height: 1; color: #e3f2ff; white-space: nowrap; }
 
 .more {
   display: block; width: 100%; margin-top: 8px; padding: 10px;
@@ -288,7 +336,9 @@ main:not(.empty) > .loading { display: none; }
   .card { padding: 12px; }
   .hourly { margin: 0 -12px; padding-left: 12px; padding-right: 12px; }
   .stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .drow { grid-template-columns: 2.8rem 1.8rem minmax(0, 1fr) 2.8rem 2.4rem; column-gap: 4px; }
+  .drow { grid-template-columns: 2.8rem 1.8rem minmax(0, 1fr) 2.8rem 3.2rem .9rem; column-gap: 4px; }
+  .d-gust { font-size: .72rem; }
+  .dsegs { gap: 4px; }
   .d-temp .bar { display: none; }
   .d-temp { gap: 3px; }
   .d-temp .lo::after { content: " /"; }

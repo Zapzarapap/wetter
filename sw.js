@@ -3,7 +3,7 @@
  * Strategie: erst Netzwerk (damit Updates sofort ankommen), bei Offline oder langsamer
  * Verbindung (> 2,5 s) die zuletzt gespeicherte Version.
  */
-const CACHE = 'wetter-v1';
+const CACHE = 'wetter-v2';
 const SHELL = [
   './', 'index.html', 'style.css', 'app.js', 'manifest.webmanifest',
   'icons/icon.svg', 'icons/icon-192.png', 'icons/icon-512.png',
