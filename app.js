@@ -347,14 +347,16 @@
       (Array.isArray(j.radar) ? j.radar : []).forEach((rec) => {
         const g = rec.precipitation_5, ms = Date.parse(rec.timestamp);
         if (!Array.isArray(g) || !g.length || !Array.isArray(g[0]) || !isFinite(ms)) return;
-        const cy = Math.min(g.length - 1, Math.max(0, Math.round(num(pos.y) ? pos.y : (g.length - 1) / 2)));
-        const cx = Math.min(g[0].length - 1, Math.max(0, Math.round(num(pos.x) ? pos.x : (g[0].length - 1) / 2)));
+        // Wert genau am Punkt: Mischung der vier Nachbar-Pixel nach der Lage von lat/lon im Raster (1 km Auflösung ist die Grenze der Daten)
+        const px = Math.min(g[0].length - 1, Math.max(0, num(pos.x) ? pos.x : (g[0].length - 1) / 2));
+        const py = Math.min(g.length - 1, Math.max(0, num(pos.y) ? pos.y : (g.length - 1) / 2));
+        const x0 = Math.floor(px), y0 = Math.floor(py), fx = px - x0, fy = py - y0;
         let s = 0, c = 0;
-        for (let y = cy - 1; y <= cy + 1; y++) for (let x = cx - 1; x <= cx + 1; x++) {
+        [[x0, y0, (1 - fx) * (1 - fy)], [x0 + 1, y0, fx * (1 - fy)], [x0, y0 + 1, (1 - fx) * fy], [x0 + 1, y0 + 1, fx * fy]].forEach(([x, y, w]) => {
           const v = g[y] && g[y][x];
-          if (num(v) && v >= 0) { s += v; c++; }
-        }
-        if (c) frames.push({ ms, mm: s / c / 100 }); // 0,01 mm pro 5 min -> mm, Mittel über 3 x 3 km
+          if (w > 0 && num(v) && v >= 0) { s += v * w; c += w; }
+        });
+        if (c > 0) frames.push({ ms, mm: s / c / 100 }); // 0,01 mm pro 5 min -> mm
       });
       frames.sort((p, q) => p.ms - q.ms);
       if (frames.length < 6) throw new Error('zu wenige Radarbilder (' + frames.length + ')');
@@ -808,7 +810,7 @@
       saveJSON(KEY_CACHE, { ts: state.fetchedAt, place: state.dataPlace, data });
       loadAlerts(place); // nicht blockierend
       loadRadar(place);
-      if (window.RadarMap) RadarMap.update(place);
+      if (window.RadarMap) RadarMap.update(place, !isDayNow(data));
     } catch (e) {
       if (id !== state.reqId) return;
       console.warn('Vorhersage konnte nicht geladen werden:', e);

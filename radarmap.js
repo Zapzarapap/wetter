@@ -21,7 +21,7 @@
   const AREA = { latMin: 46, latMax: 56, lonMin: 3.5, lonMax: 17.5 }; // grob das Radargebiet
 
   const $ = (id) => document.getElementById(id);
-  const state = { place: null, map: null, marker: null, layers: [], frames: [], idx: 0, builtAt: 0, visible: false, playing: false, timer: null, building: false };
+  const state = { night: false, base: null, place: null, map: null, marker: null, layers: [], frames: [], idx: 0, builtAt: 0, visible: false, playing: false, timer: null, building: false };
 
   const inArea = (p) => p && p.lat > AREA.latMin && p.lat < AREA.latMax && p.lon > AREA.lonMin && p.lon < AREA.lonMax;
 
@@ -180,12 +180,22 @@
     }
   }
 
+  // Ruhiges Kartenbild (CARTO Positron / Dark Matter, auf OpenStreetMap-Daten): hell tagsüber, dunkel nachts
+  function setBase(map) {
+    if (state.base) map.removeLayer(state.base);
+    state.base = L.tileLayer(`https://{s}.basemaps.cartocdn.com/${state.night ? 'dark_all' : 'light_all'}/{z}/{x}/{y}{r}.png`, {
+      subdomains: 'abcd', maxZoom: 19,
+      attribution: '© <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> · © <a href="https://carto.com/attributions" target="_blank" rel="noopener">CARTO</a> · Radar: Deutscher Wetterdienst',
+    }).addTo(map);
+    state.base.setZIndex(1);
+  }
+
   function build() {
     if (state.map || !state.place || typeof L === 'undefined') return;
     const el = $('radarMap');
     const touch = L.Browser.touch && L.Browser.mobile;
     const map = L.map(el, {
-      center: [state.place.lat, state.place.lon], zoom: 9, minZoom: 5, maxZoom: 13,
+      center: [state.place.lat, state.place.lon], zoom: 8, minZoom: 5, maxZoom: 13,
       dragging: !touch,            // am Handy scrollt ein Finger die Seite, zwei Finger bewegen/zoomen die Karte
       scrollWheelZoom: false, tap: false, zoomSnap: 0.5, worldCopyJump: false,
       attributionControl: true,
@@ -194,9 +204,7 @@
     map.createPane('radar');
     map.getPane('radar').style.zIndex = 250;
     map.getPane('radar').style.pointerEvents = 'none';
-    L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      maxZoom: 19, attribution: '© <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a>-Mitwirkende · Radar: Deutscher Wetterdienst',
-    }).addTo(map);
+    setBase(map);
     state.marker = L.circleMarker([state.place.lat, state.place.lon], {
       radius: 6, color: '#fff', weight: 2.5, fillColor: '#2a7fe3', fillOpacity: 1, interactive: false,
     }).addTo(map);
@@ -205,7 +213,6 @@
     el.addEventListener('mouseleave', () => map.scrollWheelZoom.disable());
     state.map = map;
     setTimeout(() => map.invalidateSize(), 200);
-    $('radarHint').textContent = touch ? 'Mit zwei Fingern bewegen und zoomen.' : 'Mit der Maus ziehen, nach Klick mit dem Mausrad zoomen.';
     loadFrames();
   }
 
@@ -216,13 +223,14 @@
   }
 
   /* ---------- Schnittstelle ---------- */
-  function update(place) {
+  function update(place, night) {
     const card = $('radarCard');
     if (!card) return;
     if (typeof L === 'undefined' || !inArea(place)) { card.hidden = true; state.place = null; setPlaying(false); return; }
     const moved = !state.place || Math.abs(state.place.lat - place.lat) > 0.003 || Math.abs(state.place.lon - place.lon) > 0.003;
     state.place = { lat: place.lat, lon: place.lon };
     card.hidden = false;
+    if (typeof night === 'boolean' && night !== state.night) { state.night = night; if (state.map) setBase(state.map); }
     if (state.map) {
       if (moved) { state.map.setView([place.lat, place.lon], Math.max(state.map.getZoom(), 8), { animate: false }); state.marker.setLatLng([place.lat, place.lon]); }
       if (state.visible && Date.now() - state.builtAt > REBUILD_MS) loadFrames();

@@ -168,7 +168,6 @@ main:not(.empty) > .loading { display: none; }
 /* ---------- Radar-Karte ---------- */
 .radarmap { position: relative; isolation: isolate; height: clamp(270px, 70vw, 400px); border-radius: 12px; overflow: hidden; background: rgba(0, 0, 0, .18); font: inherit; }
 .radarmap.leaflet-container { font: inherit; }
-.radarmap .leaflet-tile-pane { filter: saturate(.55) brightness(.94); } /* nur Kartenbild beruhigen, das Radar liegt in eigener Ebene */
 .radarmap .leaflet-control-attribution { font-size: .62rem; background: rgba(255, 255, 255, .7); }
 .radarmap .leaflet-bar a { width: 30px; height: 30px; line-height: 30px; }
 .radarbar { display: flex; align-items: center; gap: 10px; margin-top: 10px; }
@@ -180,7 +179,6 @@ main:not(.empty) > .loading { display: none; }
 #radarSlider { flex: 1; min-width: 0; accent-color: #fff; height: 28px; }
 .radartime { flex: none; min-width: 5.6rem; text-align: right; font-size: .9rem; font-variant-numeric: tabular-nums; line-height: 1.15; }
 .radartime small { display: block; font-size: .68rem; color: var(--fg2); }
-#radarHint:empty { display: none; }
 #radarCard .note { margin-top: 8px; }
 
 /* ---------- Wetterwarnungen (nur sichtbar, wenn eine aktiv ist) ---------- */
