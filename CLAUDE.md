@@ -35,6 +35,8 @@ Persönliche, möglichst simple Wetterseite für Niklas (Hombruch, Dortmund). Wi
   weil auch dünne Wolken noch genug direkte Strahlung durchlassen. Jetzt pro Stunde `min(sunshine_duration/3600, wolkenfreier Anteil)`, Anteil aus `cloud_cover`
   (<= 15 % = 1, >= 85 % = 0, dazwischen linear), summiert über den Tag (`daySunHours()`, Schwellen `SUN_CLOUD_MIN/MAX`). Beide stündlichen Variablen sind optional
   (bei HTTP 400 wird ohne sie neu abgefragt, dann fehlt die Anzeige). Modellwert, ab Tag 8 nur Trend; ist das Bewölkungsmodell selbst falsch (z. B. Hochnebel), hilft das nicht.
+- Regenwahrscheinlichkeit (Stündlich, Tage, 8-h-Kacheln) wird erst ab 20 % angezeigt (`PP_MIN`, `ppHtml()`), darunter steht nichts (= trocken), darüber auf 10 % gerundet.
+  Hintergrund: Open-Meteo-Wert = Chance auf >= 0,1 mm in der Stunde, Tageswert = Maximum über die Stunden, also keine "Chance, dass es heute regnet". Werte wie 2 % oder 10 % verwirren nur.
 - Regenleiste komplett trocken: ruhige, halbtransparente Leiste (weder grell hell noch dunkel) mit Haken und "Kein Regen". Niederschlag in mm (1 mm = 1 Liter pro m²), Hinweis steht in der Legende.
 - Stündlich hat eine **eigene** Scrollleiste (`#hbar`, per JavaScript, zieh- und antippbar, runde Pille); die native ist ausgeblendet,
   weil sich systemeigene Scrollleisten je nach Browser nicht abrunden lassen.

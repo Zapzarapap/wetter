@@ -20,6 +20,8 @@
   // "Tropfen": 15-Minuten-Block ist trocken (< 0,1 mm), aber Regen liegt in der Luft:
   // Regenwahrscheinlichkeit der Stunde >= DROPS_PP, die Stunde hat insgesamt >= 0,1 mm, oder der Wettercode meldet Niesel/leichten Regen.
   const DROPS_PP = 50;
+  // Regenwahrscheinlichkeit nur anzeigen, wenn sie aussagekräftig ist (< PP_MIN gilt als trocken, es erscheint nichts); gerundet auf 10 %.
+  const PP_MIN = 20;
   // Sonnenstunden = "Sonne ohne Wolken davor": Bewölkung <= SUN_CLOUD_MIN zählt voll, >= SUN_CLOUD_MAX gar nicht, dazwischen linear.
   const SUN_CLOUD_MIN = 15;
   const SUN_CLOUD_MAX = 85;
@@ -45,6 +47,7 @@
   const int = (v) => (num(v) ? nf0.format(Math.round(v)) : '–');
   // Wind als "Durchschnitt–Böen", z. B. 24–35
   const windStr = (avg, gust) => (num(gust) ? (num(avg) ? `${int(avg)}–${int(gust)}` : int(gust)) : '–');
+  const ppHtml = (pp) => (num(pp) && pp >= PP_MIN ? `${ui('drop')}${Math.round(pp / 10) * 10}%` : '');
   const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
   const loadJSON = (k) => { try { return JSON.parse(localStorage.getItem(k)); } catch (e) { return null; } };
@@ -468,7 +471,7 @@
         <span class="h-time">${idx === 0 ? 'Jetzt' : hour + ' Uhr'}</span>
         <span class="h-ico">${iconSvg(o.code, o.isDay)}</span>
         <span class="h-temp">${deg(o.temp)}</span>
-        <span class="h-rain">${ui('drop')}${num(o.pp) ? Math.round(o.pp) + '%' : '–'}</span>
+        <span class="h-rain">${ppHtml(o.pp)}</span>
         <span class="h-mm">${rain}</span>
         <span class="h-gust">${ui('wind')}${windStr(o.wind, o.gust)}</span>
       </div>`;
@@ -572,7 +575,7 @@
       <span class="s-name">${s.label}</span>
       <span class="s-ico">${iconSvg(s.code, s.isDay)}</span>
       <span class="s-temp">${deg(s.temp)}</span>
-      <span class="s-rain">${ui('drop')}${num(s.pp) ? Math.round(s.pp) + '%' : '–'}</span>
+      <span class="s-rain">${ppHtml(s.pp)}</span>
       <span class="s-mm">${s.mm >= 0.1 ? nf1.format(s.mm) + ' mm' : ''}</span>
       <span class="s-wind">${ui('wind')}${windStr(s.wind, s.gust)}</span>
     </div>`;
@@ -637,7 +640,7 @@
           <span class="d-day"><b>${r === 0 ? 'Heute' : weekday(date)}</b><small>${date.slice(8, 10)}.${date.slice(5, 7)}.</small></span>
           <span class="d-ico"><span class="d-wi">${iconSvg(D.weather_code[i], 1)}</span>${sunHtml(daySunHours(d, idxs))}</span>
           <span class="d-temp"><span class="lo">${deg(lo)}</span><span class="bar"><i style="left:${left.toFixed(1)}%;width:${width.toFixed(1)}%"></i></span><span class="hi">${deg(hi)}</span></span>
-          <span class="d-rain"><span>${ui('drop')}${num(pp) ? Math.round(pp) + '%' : '–'}</span>${num(sum) && sum >= 0.1 ? `<small>${nf1.format(sum)} mm</small>` : ''}</span>
+          <span class="d-rain"><span>${ppHtml(pp)}</span>${num(sum) && sum >= 0.1 ? `<small>${nf1.format(sum)} mm</small>` : ''}</span>
           <span class="d-gust">${ui('wind')}${windStr(wAvg, D.wind_gusts_10m_max?.[i])}</span>
           <span class="d-chev">${ui('chevron')}</span>
         </button>
