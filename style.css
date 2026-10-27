@@ -281,7 +281,7 @@ main:not(.empty) > .loading { display: none; }
 .raintrack {
   position: relative;
   display: grid; grid-template-columns: repeat(var(--n, 8), minmax(0, 1fr)); gap: 3px;
-  height: 58px; padding: 4px;
+  height: 66px; padding: 4px;
   background: var(--track);
   border-radius: 12px;
 }
@@ -293,12 +293,12 @@ main:not(.empty) > .loading { display: none; }
 }
 .rb.dry   { background: rgba(255, 255, 255, .07); }
 /* Tropfen = Menge: nur Hellblau = ein paar Tropfen, 1 Tropfen wenig, 2 mehr, 3 viel */
-.rb.drops { background: #d4ebff; }
-.rb.light { background: #8ccaff; color: #0a2a52; }
+.rb.drops { background: #d4ebff; color: #0a4a8a; }
+.rb.light { background: #8ccaff; color: #0a3a70; }
 .rb.mid   { background: #4a9dff; color: #fff; }
 .rb.heavy { background: #1f4fd8; color: #fff; }
 .rb .dr { display: flex; flex-direction: column; align-items: center; gap: 2px; }
-.rb .dr svg { width: 14px; height: 14px; fill: currentColor; stroke: none; }
+.rb .dr svg { width: 12px; height: 12px; fill: currentColor; stroke: none; }
 .rb.storm { background: #a855f7; color: #fff; }
 
 /* Komplett trocken: helle, ruhige Leiste statt dunklem Kasten */
@@ -320,15 +320,6 @@ main:not(.empty) > .loading { display: none; }
 
 .rainsummary { margin-top: 8px; font-size: 1rem; font-weight: 550; }
 
-.legend { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; margin-top: 10px; font-size: .72rem; color: var(--fg2, var(--fg3)); }
-.legend .lk { display: inline-flex; align-items: center; gap: 6px; }
-.legend i { display: inline-flex; align-items: center; justify-content: center; gap: 1px; min-width: 34px; height: 22px; padding: 0 5px; border-radius: 6px; box-sizing: border-box; }
-.legend i svg { width: 9px; height: 9px; fill: currentColor; stroke: none; }
-.legend .l0 { background: #d4ebff; }
-.legend .l1 { background: #8ccaff; color: #0a2a52; } .legend .l2 { background: #4a9dff; color: #fff; }
-.legend .l3 { background: #1f4fd8; color: #fff; } .legend .l4 { background: #a855f7; }
-.legend .lk + .lk { margin-left: 4px; }
-.legend .lnote { flex-basis: 100%; font-size: .68rem; color: var(--fg3); }
 
 /* ---------- Tage ---------- */
 .day { border-top: 1px solid rgba(255, 255, 255, .1); }

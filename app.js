@@ -557,9 +557,9 @@
     const n = blocks.length;
     const cells = blocks.map((b) => {
       const txt = b.cls === 'dry' || b.cls === 'drops' ? '' : b.mm >= 0.05 ? nf1.format(b.mm) : '';
-      const tip = `${hhmm(b.time)} Uhr · ${b.cls === 'dry' ? 'trocken' : b.cls === 'drops' ? 'vielleicht ein paar Tropfen' : nf1.format(b.mm) + ' mm'}`;
-      const nd = b.cls === 'light' ? 1 : b.cls === 'mid' ? 2 : b.cls === 'heavy' ? 3 : 0;
-      const dr = nd ? `<span class="dr">${dropsSvg(nd)}</span>` : '';
+      const tip = `${hhmm(b.time)} Uhr · ${b.cls === 'dry' ? 'trocken' : b.cls === 'drops' ? 'Nieselregen' : nf1.format(b.mm) + ' mm'}`;
+      const nd = b.cls === 'drops' ? 1 : b.cls === 'light' ? 2 : b.cls === 'mid' ? 3 : b.cls === 'heavy' ? 4 : 0;
+      const dr = nd ? `<span class="dr">${dropsSvg(nd)}</span>` : b.cls === 'storm' ? '<span class="dr"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M13 2L4 14h7l-1 8 9-12h-7z"/></svg></span>' : '';
       return `<div class="rb ${b.cls}" title="${tip}">${dr}</div>`;
     }).join('');
     const endMs = tMs(blocks[n - 1].time) + 900000;
@@ -570,17 +570,11 @@
     }).join('');
     const calm = blocks.every((b) => b.cls === 'dry' || b.cls === 'drops'); // kein richtiger Regen in Sicht
     const hasDrops = blocks.some((b) => b.cls === 'drops');
-    const msg = hasDrops ? `${ui('drop')}Höchstens ein paar Tropfen` : `${ui('check')}Kein Regen`;
-    const k = (cls, n, label) => `<span class="lk"><i class="${cls}">${n ? dropsSvg(n) : ''}</i>${label}</span>`;
-    const dropsKey = k('l0', 0, 'Nieselregen');
-    const legend = calm
-      ? (hasDrops ? `<div class="legend">${dropsKey}</div>` : '')
-      : `<div class="legend">${hasDrops ? dropsKey : ''}${k('l1', 1, 'leichter Regen')}${k('l2', 2, 'Regen')}${k('l3', 3, 'starker Regen')}${k('l4', 0, 'Gewitter')}</div>`;
+    const msg = hasDrops ? `${ui('drop')}Höchstens Nieselregen` : `${ui('check')}Kein Regen`;
     el.rain.innerHTML =
       `<div class="raintrack${calm ? ' alldry' : ''}" style="--n:${n}">${cells}${calm ? `<span class="rb-msg${hasDrops ? ' pill' : ''}"><b>${msg}</b></span>` : ''}</div>
        <div class="rainlabels">${labels}</div>
-       <p class="rainsummary">${esc(rainSummary(blocks))}</p>
-       ${legend}`;
+       <p class="rainsummary">${esc(rainSummary(blocks))}</p>`;
   }
 
   // Drei Blöcke pro Tag, je 8 Stunden: [von, bis] in Stunden relativ zum Tag (negativ = Vortag, 22 Uhr = -2).
@@ -1022,7 +1016,12 @@
   window.addEventListener('online', () => refresh());
 
   if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost')) {
-    window.addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('sw.js').catch(() => {});
+      // neuer Service Worker übernimmt: einmal neu laden, damit nie alte und neue Dateien gemischt laufen
+      let had = !!navigator.serviceWorker.controller;
+      navigator.serviceWorker.addEventListener('controllerchange', () => { if (had) location.reload(); had = true; });
+    });
   }
 
   init();

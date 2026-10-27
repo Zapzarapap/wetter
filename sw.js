@@ -1,16 +1,16 @@
 /* Service Worker: hält die App-Dateien offline bereit.
  * Wetterdaten werden NICHT hier, sondern in app.js (localStorage) zwischengespeichert.
  * Strategie: erst Netzwerk (damit Updates sofort ankommen), bei Offline oder langsamer
- * Verbindung (> 2,5 s) die zuletzt gespeicherte Version.
+ * Verbindung (> 8 s) die zuletzt gespeicherte Version.
  */
-const CACHE = 'wetter-v4';
+const CACHE = 'wetter-v5';
 const SHELL = [
   './', 'index.html', 'style.css', 'app.js', 'radarmap.js', 'vendor/leaflet/leaflet.js', 'vendor/leaflet/leaflet.css', 'manifest.webmanifest',
   'icons/icon.svg', 'icons/icon-192.png', 'icons/icon-512.png',
 ];
 
 self.addEventListener('install', (e) => {
-  e.waitUntil(caches.open(CACHE).then((c) => c.addAll(SHELL)).then(() => self.skipWaiting()));
+  e.waitUntil(caches.open(CACHE).then((c) => c.addAll(SHELL.map((u) => new Request(u, { cache: 'reload' })))).then(() => self.skipWaiting()));
 });
 
 self.addEventListener('activate', (e) => {
@@ -25,7 +25,7 @@ function networkFirst(req) {
   return new Promise((resolve) => {
     let done = false;
     const finish = (res) => { if (!done && res) { done = true; resolve(res); } };
-    const timer = setTimeout(() => caches.match(req, { ignoreSearch: true }).then(finish), 2500);
+    const timer = setTimeout(() => caches.match(req, { ignoreSearch: true }).then(finish), 8000);
     fetch(req.url, { cache: 'no-cache', credentials: 'same-origin' }) // GitHub Pages cached sonst ~10 min im Browser
       .then((res) => {
         clearTimeout(timer);

@@ -63,13 +63,13 @@ Persönliche, möglichst simple Wetterseite für Niklas (Hombruch, Dortmund). Wi
   Das "Wann kann ich raus?"-Fenster beurteilt Niklas selbst an der Leiste. 15-Minuten-Raster ist Modelldaten, kein echtes Radar.
   Die Datenfunktion `rainBlocks()` ist bewusst getrennt, falls später eine 5-Minuten-Quelle genutzt werden soll.
 - Stufe "Tropfen" (Niklas: "vielleicht ein paar Tropfen in der Luft"): 15-Minuten-Block < 0,1 mm, aber Regenwahrscheinlichkeit der Stunde >= 50 %, Stunde mit >= 0,1 mm
-  oder Niesel-/Leichtregen-Code. Zellen zeigen die Menge per Tropfen (Niklas 27.10.): nur sehr helles Blau (#d4ebff, ohne Tropfen) = ein paar Tropfen, 1 Tropfen = wenig (leicht), 2 = mehr (mäßig), 3 = viel (stark), Gewitter lila; große Tropfen, keine mm-Zahl in den Zellen; Legende: Nieselregen, leichter Regen, Regen, starker Regen, Gewitter. Transparentes Hellblau wirkte grau, Punktmuster wie ein Pflaster; sind alle Blöcke trocken oder Tropfen, zeigt die ruhige Leiste "Kein Regen" bzw. "Höchstens ein paar Tropfen".
+  oder Niesel-/Leichtregen-Code. Zellen zeigen die Stufe per Tropfen, **ohne Legende und ohne Text** (Niklas 27.10.): 1 Tropfen auf sehr hellem Blau (#d4ebff) = Nieselregen, 2 = leichter Regen, 3 = Regen, 4 = starker Regen (dunkelblau), Gewitter = lila mit Blitz. Transparentes Hellblau wirkte grau, Punktmuster wie ein Pflaster; sind alle Blöcke trocken oder Tropfen, zeigt die ruhige Leiste "Kein Regen" bzw. "Höchstens Nieselregen".
   Hintergrund: Open-Meteo speichert Niederschlag nur mit 0,1 mm Genauigkeit (nach eigenem Wissen, nicht an echten Daten geprüft), Werte < 0,1 kommen also nie an.
   Schwelle `DROPS_PP` und `DROPS_CODES` in `app.js`; erst nach echten Regentagen nachjustieren.
 - Standort: beim Öffnen Geolocation; schlägt sie fehl, der zuletzt genutzte Ort (localStorage); gibt es keinen, **Hombruch (Dortmund)**.
 - Hintergrund passt sich an Wettercode und Tageszeit an (kein separater Dark Mode, nachts dunkel). Farben in `THEMES` in `app.js`.
 - Aktualisierung beim Öffnen und alle 15 Minuten, solange die Seite offen ist. PWA: installierbar, letzte Daten werden sofort
-  mit "Stand HH:MM" gezeigt (localStorage), Service Worker cached nur die App-Dateien (Netzwerk zuerst, nach 2,5 s Cache).
+  mit "Stand HH:MM" gezeigt (localStorage), Service Worker cached nur die App-Dateien (Netzwerk zuerst mit `no-cache`, Cache erst bei Offline oder nach 8 s; Install holt mit `cache:'reload'`; bei neuem SW lädt die Seite einmal neu – sonst liefen alte und neue Dateien gemischt, Niklas sah "kurz neu, dann wieder alt"; bei Dateiänderungen `CACHE` hochzählen).
 - Mobile-first, getestet bis 320 px Breite. Keine festen Pixelbreiten für Inhalte, `min-width: 0` in Grid/Flex, Spalte auf 560 px begrenzt.
 - Alte Wetterseite von Niklas bleibt online, bis diese hier besser ist.
 
