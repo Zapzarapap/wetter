@@ -312,9 +312,9 @@
   function rainClass(mm, code) {
     if (code >= 95) return 'storm';
     if (!num(mm) || mm < 0.1) return 'dry';
-    if (mm < 0.5) return 'light';
-    if (mm < 1.5) return 'mid';
-    return 'heavy';
+    if (mm < 0.8) return 'light';   // 2 Tropfen "Regen" (bis ca. 3 mm/h)
+    if (mm < 2) return 'mid';       // 3 Tropfen "viel" (bis ca. 8 mm/h)
+    return 'heavy';                 // 4 Tropfen "richtig viel"
   }
 
   // Regenmenge (mm) im 15-Minuten-Block laut Radar oder null, wenn kein (frisches) Radar vorliegt.
@@ -330,8 +330,12 @@
     return n >= 2 ? sum * (3 / n) : null;
   }
 
+  let radarReq = 0;
   async function loadRadar(place) {
-    if (!inRadarArea(place)) { state.radar = null; if (state.data) renderRain(state.data); return; }
+    if (!inRadarArea(place)) { state.radar = null; state.radarWait = false; if (state.data) renderRain(state.data); return; }
+    const rid = ++radarReq;
+    // Solange das Radar für diesen Ort noch fehlt, zeigt die Regenleiste einen Platzhalter statt kurz die gröberen Modelldaten
+    if (!state.radar || km(state.radar.place, place) >= SAME_PLACE_KM) state.radarWait = true;
     try {
       const now = Date.now();
       const iso = (ms) => encodeURIComponent(new Date(ms).toISOString().slice(0, 19) + '+00:00');
@@ -365,6 +369,8 @@
       console.warn('Radar am Punkt nicht verfügbar:', e && e.message);
       state.radar = null;
     }
+    if (rid !== radarReq) return;
+    state.radarWait = false;
     if (state.data) renderRain(state.data);
   }
 
@@ -392,25 +398,28 @@
     return out;
   }
 
-  // Eine Aussage zum nächsten Ereignis (Regen beginnt / endet), passend zu den Kästchen.
+  // Eine Aussage zum nächsten Ereignis (Regen beginnt / endet). Die Stärke im Satz ist die stärkste Stufe des zusammenhängenden Regens, passend zu den Tropfen.
   function rainSummary(blocks) {
     const n = blocks.length;
     const endTime = hhmmFromMs(tMs(blocks[n - 1].time) + 900000);
-    const NAME = { drops: 'Nieselregen', light: 'Leichter Regen', mid: 'Regen', heavy: 'Starker Regen', storm: 'Gewitter', snow: 'Schnee' };
+    const NAME = { drops: 'Nieselregen', light: 'Regen', mid: 'Starker Regen', heavy: 'Starkregen', storm: 'Gewitter', snow: 'Schnee' };
+    const RANK = { drops: 1, light: 2, mid: 3, heavy: 4, snow: 5, storm: 6 };
     const kind = (b) => {
       if (b.cls === 'storm' || b.code >= 95) return 'storm';
       if ((b.code >= 71 && b.code <= 77) || b.code === 85 || b.code === 86) return 'snow';
       return b.cls;
     };
     const dry = (b) => b.cls === 'dry';
+    const peak = (from, to) => { let k = 'drops'; for (let i = from; i < to; i++) { const x = kind(blocks[i]); if (RANK[x] > RANK[k]) k = x; } return NAME[k]; };
+    const wetEnd = (from) => { let i = from; while (i < n && !dry(blocks[i])) i++; return i; };
     if (dry(blocks[0])) {
       const i = blocks.findIndex((b) => !dry(b));
       if (i === -1) return n === RAIN_BLOCKS ? 'Trocken in den nächsten 2 Stunden.' : `Trocken bis ${endTime}.`;
-      return `${NAME[kind(blocks[i])]} ab ${hhmm(blocks[i].time)}.`;
+      return `${peak(i, wetEnd(i))} ab ${hhmm(blocks[i].time)}.`;
     }
-    const name = NAME[kind(blocks[0])];
-    const end = blocks.findIndex((b, i) => i > 0 && dry(b));
-    if (end === -1) return `${name} bis mindestens ${endTime}.`;
+    const end = wetEnd(0);
+    const name = peak(0, end);
+    if (end >= n) return `${name} bis mindestens ${endTime}.`;
     const again = blocks.findIndex((b, i) => i > end && !dry(b));
     if (again !== -1 && again - end <= 2) return `${name}, kurze Pause zwischen ${hhmm(blocks[end].time)} und ${hhmm(blocks[again].time)}.`;
     return `${name} bis ${hhmm(blocks[end].time)}.`;
@@ -547,6 +556,11 @@
   const dropsSvg = (k) => '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z"/></svg>'.repeat(k);
 
   function renderRain(d) {
+    if (state.radarWait && inRadarArea(state.place || DEFAULT_PLACE)) {
+      el.rainSrc.textContent = 'nächste 2 Stunden';
+      el.rain.innerHTML = `<div class="raintrack alldry" style="--n:8">${'<div class="rb dry"></div>'.repeat(8)}</div><p class="rainsummary dim">Regen wird geladen …</p>`;
+      return;
+    }
     const blocks = rainBlocks(d);
     const nr = blocks.filter((b) => b.src === 'radar').length;
     el.rainSrc.textContent = `nächste 2 Stunden · ${nr === 0 ? 'Modell' : nr === blocks.length ? 'Radar' : 'Radar + Modell'}`;
@@ -559,7 +573,7 @@
       const txt = b.cls === 'dry' || b.cls === 'drops' ? '' : b.mm >= 0.05 ? nf1.format(b.mm) : '';
       const tip = `${hhmm(b.time)} Uhr · ${b.cls === 'dry' ? 'trocken' : b.cls === 'drops' ? 'Nieselregen' : nf1.format(b.mm) + ' mm'}`;
       const nd = b.cls === 'drops' ? 1 : b.cls === 'light' ? 2 : b.cls === 'mid' ? 3 : b.cls === 'heavy' ? 4 : 0;
-      const dr = nd ? `<span class="dr">${dropsSvg(nd)}</span>` : b.cls === 'storm' ? '<span class="dr"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M13 2L4 14h7l-1 8 9-12h-7z"/></svg></span>' : '';
+      const dr = nd ? `<span class="dr n${nd}">${dropsSvg(nd)}</span>` : b.cls === 'storm' ? '<span class="dr"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M13 2L4 14h7l-1 8 9-12h-7z"/></svg></span>' : '';
       return `<div class="rb ${b.cls}" title="${tip}">${dr}</div>`;
     }).join('');
     const endMs = tMs(blocks[n - 1].time) + 900000;
@@ -797,6 +811,7 @@
     state.inflight = { id, place };
     state.status = 'loading';
     renderAll();
+    loadRadar(place); // parallel zur Vorhersage
     try {
       const data = await fetchForecast(place);
       if (id !== state.reqId) return;
@@ -806,7 +821,6 @@
       state.status = 'ok';
       saveJSON(KEY_CACHE, { ts: state.fetchedAt, place: state.dataPlace, data });
       loadAlerts(place); // nicht blockierend
-      loadRadar(place);
       if (window.RadarMap) RadarMap.update(place, !isDayNow(data));
     } catch (e) {
       if (id !== state.reqId) return;
@@ -995,6 +1009,7 @@
       state.dataPlace = cache.place;
       state.fetchedAt = cache.ts || 0;
     }
+    state.radarWait = inRadarArea(state.place);
     renderAll();
 
     load(state.place, { force: true }); // sofort für den letzten Ort laden

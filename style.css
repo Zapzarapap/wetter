@@ -281,7 +281,7 @@ main:not(.empty) > .loading { display: none; }
 .raintrack {
   position: relative;
   display: grid; grid-template-columns: repeat(var(--n, 8), minmax(0, 1fr)); gap: 3px;
-  height: 66px; padding: 4px;
+  height: 56px; padding: 4px;
   background: var(--track);
   border-radius: 12px;
 }
@@ -297,8 +297,11 @@ main:not(.empty) > .loading { display: none; }
 .rb.light { background: #8ccaff; color: #0a3a70; }
 .rb.mid   { background: #4a9dff; color: #fff; }
 .rb.heavy { background: #1f4fd8; color: #fff; }
-.rb .dr { display: flex; flex-direction: column; align-items: center; gap: 2px; }
-.rb .dr svg { width: 12px; height: 12px; fill: currentColor; stroke: none; }
+.rb { container-type: inline-size; }
+.rb .dr { display: flex; flex-wrap: wrap; justify-content: center; align-content: center; gap: 1px 2px; width: 100%; }
+.rb .dr.n4 { width: 68%; }
+.rb .dr svg { width: clamp(8px, 30cqw, 18px); height: clamp(8px, 30cqw, 18px); fill: currentColor; stroke: none; }
+.rainsummary.dim { opacity: .65; font-weight: 450; }
 .rb.storm { background: #a855f7; color: #fff; }
 
 /* Komplett trocken: helle, ruhige Leiste statt dunklem Kasten */
